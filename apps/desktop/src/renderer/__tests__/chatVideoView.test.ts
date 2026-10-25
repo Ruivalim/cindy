@@ -59,6 +59,17 @@ describe('ChatVideoView inline keyboard controls', () => {
 });
 
 describe('ChatVideoView 加载失败', () => {
+  // 与上面一组相同的环境：jsdom 没有 IntersectionObserver，播放器可见性监听需要替身。
+  beforeEach(() => {
+    vi.stubGlobal('IntersectionObserver', class { observe() {} disconnect() {} });
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    cleanup();
+    __resetMediaBusForTests();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
   // 嵌入视频的地址会在挂载后变化(远程改写落地、相对路径解析出任务目录里的真实文件)。
   // 失败态必须跟着地址走:旧地址失败后换成新地址要重新加载,不能一直停在「视频不可用」。
   it('换成新地址后重新加载，不沿用上一个地址的失败态', () => {

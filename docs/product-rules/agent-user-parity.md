@@ -40,6 +40,7 @@
 | 对象     | 操作                                                       | 本机 | 跨电脑           |
 | -------- | ---------------------------------------------------------- | ---- | ---------------- |
 | 任务     | 列出、搜索、读聊天记录、发现电脑                           | 有   | 有               |
+| 任务     | 获取可直接引用的任务链接（列表、搜索、聊天记录与摘要返回 sessionUrl） | 有 | 有（链接携带所属电脑；旧远端查询结果由调用端补齐） |
 | 任务     | 读摘要（状态、最后的要求与回答、模型路线、PR、排队数）     | 有   | 有（2026-10-17） |
 | 任务     | 给既有任务发消息                                           | 有   | 有（2026-10-14） |
 | 任务     | 新建任务                                                   | 有   | 无               |
@@ -91,6 +92,10 @@ Worker 工具省略 working_dir 时保持继承 Lead 任务记录目录，不跟
 - 任务摘要（`get_task_digest`）：`packages/lizi-mcps/src/xdt-helper/get_task_digest.ts`（输出合同 ≤2KB）、
   `apps/desktop/src/main/mcp-integrations/taskDigest.ts` 与 `taskDigestHost.ts`（跨电脑只读，复用
   `local-db:sessions:get`、`maker:list-active`、历史消息与 PR 状态通道）。
+  本机与跨电脑均排除带隐藏触发标记的协调／续跑输入，保留最新助手回复全文供工具按预算截短；
+  长回复保留首尾片段，总预算进一步收紧时仍保留首尾，避免丢掉末尾结果或阻塞说明。
+  不用内部回报替代用户要求，也不只取助手回复最后一行。`finished` 只表示所查任务本轮结束，
+  不证明委派工作或用户目标完成；不参与输入放行判定，下一条消息仍按实时运行状态和队列派发。
 - 伙伴跟进任务：`apps/desktop/src/main/maker-ipc/botWorkbenchAccess.ts`（授权：自动跟进所有任务的伙伴
   可读取既有范围内的任务，含在线电脑；继续或接手还需行动授权，其它伙伴只读自己开的或已接手的任务）。
 - 协议与兼容见 [`../dev-rules/protocol-compatibility.md`](../dev-rules/protocol-compatibility.md)

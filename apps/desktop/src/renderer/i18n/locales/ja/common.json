@@ -1918,7 +1918,20 @@
       "wecomGroupToggleFailed": "WeCom グループ通知の設定を更新できませんでした",
       "wecomGroupClear": "削除",
       "wecomGroupCleared": "Webhook を削除しました",
-      "wecomGroupClearFailed": "Webhook を削除できませんでした"
+      "wecomGroupClearFailed": "Webhook を削除できませんでした",
+      "chat": {
+        "image": "画像",
+        "audio": "音声メッセージ",
+        "video": "動画",
+        "file": "ファイル",
+        "message": "新しいメッセージ",
+        "teammate": "パートナー",
+        "sender": "不明な送信者",
+        "mention": "あなたにメンション",
+        "reply": "あなたに返信",
+        "threadReply": "スレッドへの返信",
+        "thread": "スレッド"
+      }
     },
     "windowBehavior": {
       "menubar": {
@@ -12598,6 +12611,19 @@
     }
   },
   "ccAgent": {
+    "contextWindowBudget": {
+      "menuTitle": "このタスクのコンテキストウィンドウ",
+      "triggerLabel": "タスクのコンテキストウィンドウ、現在 {{window}}",
+      "menuHint": "このタスクのみ。次のメッセージから適用。",
+      "optionDefault": "モデル既定",
+      "optionPercent": "{{percent}}%",
+      "inputPrice": "入力 {{price}}/M",
+      "remoteUnsupported": "被制御デバイスのバージョンではこのタスクのコンテキストウィンドウを変更できません",
+      "remoteTightenOnly": "接続先の上限が読めないため、縮小方向のみ提示します。",
+      "readOnlyHint": "読み取り専用のタスクです。段階と価格帯は確認できますが、変更はできません。",
+      "shrinkWarning": "現在 {{used}} 使用中。小さいウィンドウにすると先に圧縮または切り替えが発生します。",
+      "saveFailed": "コンテキストウィンドウの保存に失敗しました"
+    },
     "agentStatus": {
       "readingMemory": "記憶を読んでいます…",
       "savingMemory": "記憶を保存しています…",
@@ -13150,11 +13176,11 @@
         "unarchiveAll": "すべてアーカイブ解除",
         "openInExplorer": "ファイルマネージャーで開く",
         "newInDirectory": "このディレクトリで新規セッション",
-        "copyDeepLink": "ディープリンクをコピー",
+        "copyDeepLink": "プロジェクトリンクをコピー",
         "search": "このプロジェクト内のセッションを検索"
       },
       "deepLink": {
-        "copied": "ディープリンクをコピーしました",
+        "copied": "リンクをコピーしました",
         "copyFailed": "コピーに失敗しました。手動でコピーしてください",
         "projectNotFound": "対応するプロジェクトが見つかりません。アーカイブされたか、このデバイスに存在しない可能性があります"
       },

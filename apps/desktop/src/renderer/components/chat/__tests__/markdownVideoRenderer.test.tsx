@@ -191,6 +191,17 @@ describe('MarkdownRenderer workspace-relative media in local sessions', () => {
     },
   );
 
+  // 直接拼接就能找到、但原写法不是规范写法（如在 POSIX 任务目录里写反斜杠）：原写法拼不出能用的
+  // 地址，要换成找到的绝对路径；只有原写法本身就是规范写法时才保留原写法。
+  it.each(['renders\\out\\clip.mp4'])(
+    'loads the found file when %s matches the joined path in another spelling',
+    async (href) => {
+      const direct = { 'renders/out/clip.mp4': { status: 'unique', candidates: ['/task/renders/out/clip.mp4'], kind: 'file' } };
+      const { view } = mount(richNode('video', href), LOCAL, direct);
+      await waitFor(() => expect(mediaSrc(view.container)).toBe(toLocalFileUrl('/task/renders/out/clip.mp4')));
+    },
+  );
+
   it('does not search for a path that leaves the task directory', async () => {
     const { resolvePathBatch } = mount(richNode('video', '../clip.mp4'), LOCAL, {});
     await act(async () => {});

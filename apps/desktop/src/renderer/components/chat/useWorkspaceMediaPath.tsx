@@ -169,9 +169,10 @@ export function useWorkspaceMediaPath(
   if (!href) return { src, pending: false, revision };
   if (!result) return { src: undefined, pending: true, revision };
   if (result.status !== 'unique' || result.kind === 'directory') return { src, pending: false, revision };
-  // 直接拼接本来就能找到时保持原写法，避免播放器因地址写法不同而重新加载。
+  // 直接拼接本来就能找到、且原写法就是规范写法时保持原写法，避免播放器因地址写法不同而重新加载；
+  // 原写法不规范（如 POSIX 任务目录里的反斜杠）时拼不出能用的地址，换成找到的绝对路径。
   return {
-    src: isSamePath(result.absPath, resolveLocalPath(href, workingDir)) ? src : result.absPath,
+    src: src === href && isSamePath(result.absPath, resolveLocalPath(href, workingDir)) ? src : result.absPath,
     pending: false,
     revision,
   };

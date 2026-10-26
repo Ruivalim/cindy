@@ -50,6 +50,25 @@ function isRelativeLocalPath(src: string): boolean {
   return !src.startsWith('/') && !src.startsWith('\\');
 }
 
+/**
+ * 查找用的规范写法：去掉 `.` 段与多余分隔符，按 `..` 回退。主进程按「/<路径>」后缀匹配，
+ * `./renders/out/clip.mp4` 原样传下去永远匹配不上。会越出任务目录的路径返回 null（不搜索）。
+ * 只用于查找；没有命中时仍按原始写法加载。
+ */
+function lookupPath(src: string): string | null {
+  const segments: string[] = [];
+  for (const segment of src.split(/[\\/]+/)) {
+    if (!segment || segment === '.') continue;
+    if (segment === '..') {
+      if (segments.length === 0) return null;
+      segments.pop();
+      continue;
+    }
+    segments.push(segment);
+  }
+  return segments.length > 0 ? segments.join('/') : null;
+}
+
 function isSamePath(a: string, b: string): boolean {
   return a.replace(/\\/g, '/') === b.replace(/\\/g, '/');
 }
@@ -80,7 +99,7 @@ export function useWorkspaceMediaPath(
   streaming = false,
 ): WorkspaceMediaPath {
   const href =
-    enabled && src && workingDir && isRelativeLocalPath(src) && !src.includes('%') ? src : null;
+    enabled && src && workingDir && isRelativeLocalPath(src) && !src.includes('%') ? lookupPath(src) : null;
   const key = href ? `${workingDir}::${href}` : null;
   const [settled, setSettled] = useState<{ key: string; result: SmartResolveResult } | null>(null);
   // 重查时机：窗口重新聚焦、所在消息流式结束(挂载本身由下面的 effect 覆盖)。记下发生的

@@ -181,6 +181,22 @@ describe('MarkdownRenderer workspace-relative media in local sessions', () => {
     await waitFor(() => expect(mediaSrc(view.container)).toBe(toUrl(`/task/film/${href}`)));
   });
 
+  // `./`、重复分隔符、`..` 这些写法要先规范成主进程能按后缀匹配的形式再查；越出任务目录的不查。
+  it.each(['./renders/out/clip.mp4', 'renders//out/./clip.mp4', 'film/../renders/out/clip.mp4'])(
+    'looks up %s by its normalized path',
+    async (href) => {
+      const { view, resolvePathBatch } = mount(richNode('video', href), LOCAL, unique('renders/out/clip.mp4'));
+      await waitFor(() => expect(mediaSrc(view.container)).toBe(toLocalFileUrl('/task/film/renders/out/clip.mp4')));
+      expect(resolvePathBatch).toHaveBeenCalledWith({ hrefs: ['renders/out/clip.mp4'], workingDir: '/task' });
+    },
+  );
+
+  it('does not search for a path that leaves the task directory', async () => {
+    const { resolvePathBatch } = mount(richNode('video', '../clip.mp4'), LOCAL, {});
+    await act(async () => {});
+    expect(resolvePathBatch).not.toHaveBeenCalled();
+  });
+
   // 解析结果晚到时，播放器不能先拿拼接出来的坏地址加载：那会先进入「视频不可用」。
   it('does not load the joined path before the workspace answer arrives', async () => {
     let answer!: (batch: Record<string, unknown>) => void;

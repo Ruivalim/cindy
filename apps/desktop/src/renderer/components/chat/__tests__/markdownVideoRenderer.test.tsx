@@ -202,11 +202,15 @@ describe('MarkdownRenderer workspace-relative media in local sessions', () => {
     },
   );
 
-  it('does not search for a path that leaves the task directory', async () => {
-    const { resolvePathBatch } = mount(richNode('video', '../clip.mp4'), LOCAL, {});
-    await act(async () => {});
-    expect(resolvePathBatch).not.toHaveBeenCalled();
-  });
+  // 越出任务目录的路径、以及盘根 / 绝对路径（含 Windows 的 `\renders\...` 当前盘根写法）都不做后缀搜索，
+  // 否则会把任务里恰好同后缀的无关文件换进来。
+  it.each(['../clip.mp4', '\\renders\\out\\clip.mp4', '/renders/out/clip.mp4', 'C:\\renders\\out\\clip.mp4'])(
+    'does not search for %s', async (href) => {
+      const { resolvePathBatch } = mount(richNode('video', href), LOCAL, unique('renders/out/clip.mp4'));
+      await act(async () => {});
+      expect(resolvePathBatch).not.toHaveBeenCalled();
+    },
+  );
 
   // 解析结果晚到时，播放器不能先拿拼接出来的坏地址加载：那会先进入「视频不可用」。
   it('does not load the joined path before the workspace answer arrives', async () => {

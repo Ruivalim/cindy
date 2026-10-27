@@ -231,6 +231,21 @@ describe('MarkdownRenderer workspace-relative media in local sessions', () => {
     expect(resolvePathBatch).toHaveBeenCalledTimes(1);
   });
 
+  // 共享缓存挤掉了它，组件自己记着唯一命中：窗口聚焦不能再查一次，否则一次偶发的未命中会把能用的
+  // 地址换回拼接出来的坏地址（唯一命中不重查）。
+  it('does not look up a found file again on focus after the shared cache drops it', async () => {
+    const { view, resolvePathBatch } = mount(richVideo, LOCAL, unique('renders/out/clip.mp4'));
+    await waitFor(() => expect(mediaSrc(view.container)).toBe(toLocalFileUrl('/task/film/renders/out/clip.mp4')));
+
+    _clearSmartResolveCache();
+    later();
+    resolvePathBatch.mockResolvedValue(missing);
+    act(() => { window.dispatchEvent(new Event('focus')); });
+    await act(async () => {});
+    expect(resolvePathBatch).toHaveBeenCalledTimes(1);
+    expect(mediaSrc(view.container)).toBe(toLocalFileUrl('/task/film/renders/out/clip.mp4'));
+  });
+
   it('keeps the joined path when the workspace has no match', async () => {
     const { view } = mount(richVideo, LOCAL, { 'renders/out/clip.mp4': { status: 'none', candidates: [] } });
     await waitFor(() => expect(mediaSrc(view.container)).toBe(toLocalFileUrl('/task/renders/out/clip.mp4')));

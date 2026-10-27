@@ -118,6 +118,12 @@ export function useWorkspaceMediaPath(
     else if (streamingMediaKeys.delete(key)) setBoundary({ at: Date.now() });
   }, [key, streaming]);
 
+  // 组件自己记下的结论（共享缓存可能已把它挤掉），给下面的 effect 判断是否已唯一命中。
+  const settledRef = useRef(settled);
+  useEffect(() => {
+    settledRef.current = settled;
+  }, [settled]);
+
   useEffect(() => {
     if (!href || !key) return;
     let cancelled = false;
@@ -136,6 +142,9 @@ export function useWorkspaceMediaPath(
       apply(cached);
       void revalidateNegativeLocalPathSmart(href, workingDir, boundaryAt)?.then(apply);
     } else {
+      // 唯一命中不重查：共享缓存挤掉了它，组件自己记着的结论仍然有效。
+      const own = settledRef.current;
+      if (own?.key === key && own.result.status === 'unique') return;
       const recheck =
         boundaryAt === undefined ? null : revalidateNegativeLocalPathSmart(href, workingDir, boundaryAt);
       void (recheck ?? resolveLocalPathSmartCached(href, workingDir)).then(apply);

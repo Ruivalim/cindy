@@ -206,6 +206,33 @@ describe('incoming Share Extension payloads', () => {
     expect(consumeIncomingShareBatch(first!.id)).toBe(false);
   });
 
+  // #7538: native can release its read lock before JS receives the result,
+  // allowing the focused composer (or chooser cancellation) to finish first.
+  it.each(['consume', 'cancel'] as const)('does not requeue a late native result after %s', async (action) => {
+    const raw = [{ shareType: 'text' as const, value: 'shared content' }];
+    let nativeId = action === 'consume' ? 'share-one' : undefined;
+    const native = { getSharedPayloads: () => raw, getSharedPayloadId: () => nativeId, clearSharedPayloads: vi.fn() };
+    const firstId = nativeId ?? incomingShareBatchId([payload({ ...raw[0]!, mimeType: undefined,
+      contentUri: null, contentType: 'text', contentMimeType: null,
+      originalName: raw[0]!.value, contentSize: null })]);
+    receiveIncomingShare(native);
+    let release!: (value: typeof raw) => void;
+    const reading = receiveIncomingShare({ ...native,
+      getSharedPayloadsAsync: () => new Promise<typeof raw>(resolve => { release = resolve; }),
+    });
+    expect(selectIncomingShareDestination(firstId, 'task-a')).toBe(true);
+    expect(action === 'consume' ? consumeIncomingShareBatch(firstId) : discardIncomingShareBatch(firstId)).toBe(true);
+    const next = stageIncomingShareBatch([payload({ value: 'next share' })], vi.fn())!;
+    release(raw); await reading;
+    expect(consumeIncomingShareBatch(next.id)).toBe(true);
+    expect(selectIncomingShareDestination(firstId, 'stale-target')).toBe(false);
+    expect(native.clearSharedPayloads).toHaveBeenCalledTimes(1);
+    // New invocations (including legacy content-derived IDs) remain eligible.
+    nativeId = nativeId ? 'share-two' : undefined;
+    receiveIncomingShare(native);
+    expect(consumeIncomingShareBatch(nativeId ?? firstId)).toBe(true);
+  });
+
   it('retains successive shares during login and does not clear the newer native slot', () => {
     setMobileAuthOwner(null);
     let raw = [{ value: 'file:///group/cindy-share-a/report.pdf', shareType: 'file' as const }];

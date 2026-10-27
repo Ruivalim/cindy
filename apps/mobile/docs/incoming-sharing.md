@@ -75,6 +75,9 @@ fails and retains the share instead of waiting on the JavaScript/UI thread.
 Foreground, share-link and account notifications are serialized; a late notification
 never resets the destination the user already selected. Destination taps are fenced
 until the chooser regains focus, so queued taps cannot replace an in-flight handoff.
+Reads still in flight remember batches acknowledged during that read, so a copied
+native snapshot cannot requeue a share already consumed or cancelled. This fence
+expires with the read; subsequent identical legacy shares remain eligible.
 
 New native snapshots carry a UUID for each system-share invocation. Identical text
 or URLs shared twice therefore remain distinct mailbox entries; repeated notifications

@@ -8,6 +8,7 @@ import {
   discardIncomingShareBatch,
   leaveIncomingShareChooser,
   incomingShareBatchId,
+  selectIncomingShareDestination,
   selectIncomingShareUploadCandidates,
   stageIncomingShareBatch,
   receiveIncomingShare,
@@ -417,4 +418,41 @@ describe('incoming Share Extension payloads', () => {
     expect(native.clearSharedPayloads).toHaveBeenCalledOnce();
     stop();
   });
+});
+
+// An async native result cannot cross an account boundary while its lock waits.
+it('drops a late native result after the receiving account changes', async () => {
+  authOwnerTesting.reset(); setMobileAuthOwner('account-a'); __resetIncomingShareForTest();
+  let release!: (raw: Array<{ shareType: 'text'; value: string }>) => void;
+  const raw = [{ shareType: 'text' as const, value: 'private account A content' }];
+  const native = {
+    getSharedPayloads: vi.fn(() => raw),
+    getSharedPayloadsAsync: () => new Promise<typeof raw>(resolve => { release = resolve; }),
+    clearSharedPayloads: vi.fn(),
+  };
+  const receiving = receiveIncomingShare(native);
+  setMobileAuthOwner('account-b');
+  release(raw); await receiving;
+  const lateId = incomingShareBatchId([{ ...raw[0]!, contentUri: null, contentType: 'text',
+    contentMimeType: null, originalName: raw[0]!.value, contentSize: null }]);
+  expect(consumeIncomingShareBatch(lateId)).toBe(false);
+  expect(native.getSharedPayloads).not.toHaveBeenCalled();
+  expect(native.clearSharedPayloads).not.toHaveBeenCalled();
+  __resetIncomingShareForTest();
+});
+
+it('keeps identical text from separate system shares separate from an already chosen target', () => {
+  authOwnerTesting.reset(); setMobileAuthOwner('account-a'); __resetIncomingShareForTest();
+  let id = 'share-one';
+  const raw = [{ shareType: 'text' as const, value: 'same text' }];
+  const native = { getSharedPayloads: () => raw, getSharedPayloadId: () => id, clearSharedPayloads: vi.fn() };
+  receiveIncomingShare(native);
+  expect(selectIncomingShareDestination('share-one', 'companion-a')).toBe(true);
+  id = 'share-two'; receiveIncomingShare(native); receiveIncomingShare(native);
+  expect(consumeIncomingShareBatch('share-one')).toBe(true);
+  expect(selectIncomingShareDestination('share-two', 'task-b')).toBe(true);
+  expect(consumeIncomingShareBatch('share-two')).toBe(true);
+  expect(native.clearSharedPayloads).toHaveBeenCalledTimes(2);
+  expect(consumeIncomingShareBatch('share-two')).toBe(false);
+  __resetIncomingShareForTest();
 });

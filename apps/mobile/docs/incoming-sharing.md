@@ -69,6 +69,17 @@ Provider temporary URLs are copied **inside** the `loadFileRepresentation` or
 URLs; web URLs precede abstract `public.image` previews but follow concrete file exports.
 Security-scoped access is balanced; directories use `NSFileCoordinator.forUploading`.
 Each input owns a unique App Group directory, so equal filenames cannot overwrite.
+Routine foreground reads run on the native module's background queue. Synchronous
+acknowledgement and account-boundary operations use a nonblocking lock: contention
+fails and retains the share instead of waiting on the JavaScript/UI thread.
+Foreground, share-link and account notifications are serialized; a late notification
+never resets the destination the user already selected. Destination taps are fenced
+until the chooser regains focus, so queued taps cannot replace an in-flight handoff.
+
+New native snapshots carry a UUID for each system-share invocation. Identical text
+or URLs shared twice therefore remain distinct mailbox entries; repeated notifications
+for one invocation are still deduplicated. The adapter accepts legacy array snapshots
+from an existing installation and acknowledges their original bytes unchanged.
 The native slot is acknowledged only by the selected, focused, hydrated composer;
 account changes and upload cleanup use the existing ownership fences. Rejection-marker
 removal is acknowledged only after a successful durable flush; failures retain the

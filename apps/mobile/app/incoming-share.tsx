@@ -102,8 +102,12 @@ export default function IncomingShareScreen() {
   const text = batch ? incomingShareText(batch.payloads) : '';
   const files = batch?.payloads.filter(item => item.shareType !== 'text' && item.shareType !== 'url') ?? [];
   const handoffBatchId = useRef<string | null>(null);
+  useEffect(() => {
+    if (focused) handoffBatchId.current = null;
+  }, [focused, batch?.id]);
   const choose = (destination: string, action: () => void) => {
-    if (!batch) return;
+    // A queued second press must not replace the destination during transition.
+    if (!batch || !navigation.isFocused() || handoffBatchId.current === batch.id) return;
     handoffBatchId.current = batch.id;
     if (selectIncomingShareDestination(batch.id, destination)) action();
     else handoffBatchId.current = null;

@@ -120,10 +120,16 @@ function updateIncomingShareOwner(
 
 type IncomingShareNative = {
   getSharedPayloads(): SharePayload[];
+  getSharedPayloadsAsync?(): Promise<SharePayload[]>;
+  getSharedPayloadId?(payloads: SharePayload[]): string | undefined;
   clearSharedPayloads(expected: SharePayload[]): void;
   discardSharedPayloads?(expected: SharePayload[]): void;
   rejectUnreadableSharedPayloads?(): void;
 };
+
+function nativeSnapshotKey(native: IncomingShareNative, raw: SharePayload[]): string {
+  return native.getSharedPayloadId?.(raw) ?? JSON.stringify(raw);
+}
 
 function discardNativeShare(native: IncomingShareNative, raw: SharePayload[]): void {
   if (native.discardSharedPayloads) native.discardSharedPayloads(raw);
@@ -146,7 +152,7 @@ export function watchIncomingShareAccount(
       } catch {
         // Also fence older binaries, or a failure to persist the native tombstone.
         // null means the slot was unreadable: its first readable batch must clear.
-        rejectedNativeSnapshots.set(native, raw ? JSON.stringify(raw) : null);
+        rejectedNativeSnapshots.set(native, raw ? nativeSnapshotKey(native, raw) : null);
         if (raw === undefined) {
           // Persist without touching the unavailable App Group. A fresh process
           // must reject its first readable slot before the new owner can see it.
@@ -190,9 +196,9 @@ export function incomingShareBatchId(payloads: readonly ResolvedSharePayload[]):
 export function stageIncomingShareBatch(
   payloads: readonly ResolvedSharePayload[],
   acknowledge: () => void,
+  id = incomingShareBatchId(payloads),
 ): IncomingShareBatch | null {
   if (payloads.length === 0 || getMobileAuthOwner().switching) return null;
-  const id = incomingShareBatchId(payloads);
   const existing = pendingBatches.find((batch) => batch.id === id);
   if (existing) return existing;
   unsubscribeOwner ??= observeIncomingShareOwner(updateIncomingShareOwner);
@@ -253,12 +259,23 @@ export function leaveIncomingShareChooser(cancelBatchId: string | null, leave: (
 }
 
 /** Raw local files need no asynchronous resolver; the uploader stats their size. */
-export function receiveIncomingShare(native: IncomingShareNative): void {
-  if (getMobileAuthOwner().switching) return;
-  const raw = native.getSharedPayloads();
+export function receiveIncomingShare(native: IncomingShareNative): void | Promise<void> {
+  const owner = getMobileAuthOwner();
+  if (owner.switching) return;
+  if (native.getSharedPayloadsAsync) {
+    return native.getSharedPayloadsAsync().then(raw => {
+      // A slow native read must not assign the previous account's share to the
+      // account that became active while it was waiting. Its observer owns cleanup.
+      if (isMobileAuthOwnerCurrent(owner)) receiveNativePayloads(native, raw);
+    });
+  }
+  receiveNativePayloads(native, native.getSharedPayloads());
+}
+
+function receiveNativePayloads(native: IncomingShareNative, raw: SharePayload[]): void {
   if (rejectedNativeSnapshots.has(native)) {
     const rejected = rejectedNativeSnapshots.get(native);
-    if (rejected === null || rejected === JSON.stringify(raw)) {
+    if (rejected === null || rejected === nativeSnapshotKey(native, raw)) {
       try { discardNativeShare(native, raw); } catch { return; }
       rejectedNativeSnapshots.delete(native);
       return;
@@ -278,7 +295,7 @@ export function receiveIncomingShare(native: IncomingShareNative): void {
   stageIncomingShareBatch(payloads, () => {
     // Native compares the captured bytes and clears under the writer's lock.
     native.clearSharedPayloads(raw);
-  });
+  }, native.getSharedPayloadId?.(raw));
 }
 
 function safeDecode(value: string): string {

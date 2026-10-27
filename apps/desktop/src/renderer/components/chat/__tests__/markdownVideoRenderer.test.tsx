@@ -297,6 +297,23 @@ describe('MarkdownRenderer workspace-relative media in local sessions', () => {
     await waitFor(() => expect(mediaSrc(view.container)).toBe(toLocalFileUrl('/task/film/renders/out/still.png')));
   });
 
+  // 回复先写普通 Markdown 图片、再开 cindy-ui 块：图片所在的前缀分片已经完整，但整条回复仍在输出，
+  // 流式结束要以整条回复为准，否则后面块还在输出时文件才写出，图片会一直停在拼接地址。
+  it('re-checks a Markdown image before a cindy-ui block when the whole reply finishes', async () => {
+    const image = '![sheet](work/sheet.jpg)\n\n';
+    const { view, resolvePathBatch } = mount(image, LOCAL, { 'work/sheet.jpg': { status: 'none', candidates: [] } });
+    const reply = (content: string, isStreaming: boolean) => (
+      <MarkdownRenderer workingDir="/task" currentSessionId="s1" isStreaming={isStreaming} renderRichAnswers content={content} />
+    );
+    view.rerender(reply(image + '```cindy-ui\n', true));
+    await waitFor(() => expect(mediaSrc(view.container)).toBe(toLocalFileUrl('/task/work/sheet.jpg')));
+
+    later();
+    resolvePathBatch.mockResolvedValue(unique('work/sheet.jpg'));
+    view.rerender(reply(image + richNode('video', 'https://example.com/clip.mp4'), false));
+    await waitFor(() => expect(view.container.querySelector('img')?.getAttribute('src')).toBe(toLocalFileUrl('/task/film/work/sheet.jpg')));
+  });
+
   // 同一次重查里的多个媒体共用一次请求（主进程一次目录遍历），不按媒体个数各自遍历。
   it('re-checks several missing media of one task in a single request', async () => {
     const hrefs = ['renders/out/a.mp4', 'renders/out/b.mp4'];

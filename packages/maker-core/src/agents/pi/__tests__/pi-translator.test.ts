@@ -2361,7 +2361,7 @@ describe('pi translator live token speed', () => {
       update({ type: 'toolcall_start', contentIndex: 1, toolCall: { name: 'bash' } }, 1_600);
       update({ type: 'toolcall_delta', contentIndex: 1, delta: '{"command":"ls -la"}', toolCall: { name: 'bash' } }, 1_700);
       update({ type: 'toolcall_end', contentIndex: 1, toolCall: { name: 'bash' } }, 2_000);
-      expect(ctx.tokenSpeed.snapshot(10_000)).toMatchObject({ tokens: 17, elapsedMs: 1_000 });
+      expect(ctx.tokenSpeed.snapshot(10_000)).toMatchObject({ tokens: 17, elapsedMs: 1_000, streaming: false });
       update({ type: 'text_delta', contentIndex: 0, delta: 'seven eight' }, 12_000);
 
       vi.setSystemTime(12_500);
@@ -2424,6 +2424,52 @@ describe('pi translator live token speed', () => {
       events.length = 0;
       translatePiEvent(ev({ type: 'agent_start' }), queue, ctx);
       expect(usageSnapshotOf(ctx).tokenSpeed).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps delegated subagent output out of the parent generation meter', () => {
+    vi.useFakeTimers();
+    try {
+      const ctx = createPiTranslateContext(noopLogger);
+      const { queue } = makeQueue();
+      vi.setSystemTime(1_000);
+      translatePiEvent(ev({ type: 'agent_start' }), queue, ctx);
+      translatePiEvent(ev({ type: 'message_start', message: { role: 'assistant' } }), queue, ctx);
+      vi.setSystemTime(1_500);
+      translatePiEvent(ev({ type: 'message_update', assistantMessageEvent: {
+        type: 'text_delta', contentIndex: 0, delta: 'one two three four five six',
+      } }), queue, ctx);
+
+      // A subagent runs during the tool window and reports its own output.
+      vi.setSystemTime(2_000);
+      translatePiEvent(ev({ type: 'message_update', assistantMessageEvent: {
+        type: 'toolcall_end', toolCall: { name: 'subagent' },
+      } }), queue, ctx);
+      translatePiEvent(ev({
+        type: 'tool_execution_update',
+        toolCallId: 'sa-1',
+        partialResult: { details: { __cindySubagent: 1, taskId: 'sa-1', status: 'running',
+          usage: { input: 100, output: 900, cacheRead: 0, cacheWrite: 0, cost: 0 } } },
+      }), queue, ctx);
+      vi.setSystemTime(12_000);
+      expect(ctx.turnOutput).toBe(900);
+      // The child ran inside the tool pause: its tokens do not join the meter, and
+      // the 10s tool window is still excluded from the parent's generation time.
+      expect(ctx.tokenSpeed.snapshot()).toMatchObject({ tokens: 6, elapsedMs: 1_000 });
+
+      // The parent's own message_end calibrates the meter to its own output only.
+      vi.setSystemTime(12_500);
+      translatePiEvent(ev({ type: 'message_end', message: {
+        role: 'assistant', content: [{ type: 'text', text: 'one two three four five six' }],
+        stopReason: 'stop', usage: { input: 10, output: 4 },
+      } }), queue, ctx);
+      expect(ctx.turnOutput).toBe(904);
+      // Downwards calibration: the parent billed 4 output tokens, not the 6 estimated.
+      expect(ctx.tokenSpeed.snapshot()).toMatchObject({ tokens: 4 });
+      translatePiEvent(ev({ type: 'agent_settled' }), queue, ctx);
+      expect(ctx.tokenSpeed.snapshot()?.tokens).toBe(4);
     } finally {
       vi.useRealTimers();
     }

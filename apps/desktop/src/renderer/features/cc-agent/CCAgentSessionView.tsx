@@ -6764,8 +6764,9 @@ function RunningStatusBar({
     latestRate,
   });
   const latestRateText = latestRate !== null ? formatRecentOutputTokenRate(latestRate) : null;
+  // 工具执行期间(host 已 pause)不显示流速:那不是生成速度,残留读数只会误导。
   const rateText =
-    !isHidden && !reconnecting && usageMeta.kind === 'rate'
+    !isHidden && !reconnecting && usageMeta.kind === 'rate' && !(tokenSpeed && !tokenSpeed.streaming)
       ? latestRateText !== null
         ? t('chat.runningStatus.tokenRate', { rate: latestRateText })
         : null
@@ -6864,7 +6865,10 @@ function RunningStatusBar({
                 elapsedText={elapsedText}
                 rate={latestRateText}
                 rateText={
-                  workflowWaiting || sideTaskRunning || backgroundTasksRunning
+                  workflowWaiting ||
+                  sideTaskRunning ||
+                  backgroundTasksRunning ||
+                  (tokenSpeed && !tokenSpeed.streaming)
                     ? null
                     : usageMeta.kind === 'tokens'
                       ? tokenCountText

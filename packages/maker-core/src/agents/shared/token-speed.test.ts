@@ -165,6 +165,99 @@ describe('TokenSpeedMeter (pi-token-speed algorithm)', () => {
     const due = [0, 50, 100, 260, 300, 520].map((t) => meter.recordDelta('a b c d e', t));
     expect(due).toEqual([true, false, false, true, false, true]);
   });
+
+  it('marks streaming as false during a pause and reports average without live rate inflation', () => {
+    const meter = new TokenSpeedMeter();
+    meter.start(0);
+    for (let t = 100; t <= 1_000; t += 100) meter.recordDelta('a b c d e f g h i j', t);
+    const live = meter.snapshot(1_000)!;
+    expect(live.streaming).toBe(true);
+    expect(live.rate).toBeCloseTo(100, 5);
+    expect(live.peak).toBeCloseTo(100, 5);
+
+    meter.pause(1_000);
+    // While a tool runs for 10s, streaming must be false and rate should report average.
+    const paused = meter.snapshot(11_000)!;
+    expect(paused.streaming).toBe(false);
+    expect(paused.rate).toBeCloseTo(100, 5);
+    expect(paused.elapsedMs).toBe(1_000);
+    expect(paused.peak).toBeCloseTo(100, 5);
+
+    // Resuming with new delta resumes live streaming.
+    meter.start(11_000);
+    meter.recordDelta('a b c d e f g h i j', 11_100);
+    const resumed = meter.snapshot(11_100)!;
+    expect(resumed.streaming).toBe(true);
+  });
+
+  it('discards sub-100ms bursts from creating artificial high-rate spikes', () => {
+    const meter = new TokenSpeedMeter();
+    meter.start(0);
+    // 175 tokens arriving at 10ms (sub-100ms span)
+    meter.recordDelta(Array.from({ length: 175 }, () => 'w').join(' '), 10);
+    const snap = meter.snapshot(10)!;
+    // Rate must not be 1750 (175 tokens / 100ms minimum divisor)
+    expect(snap.rate).toBe(0);
+    // Nor may the average divide by the 10ms window: it stays 0 below one second.
+    expect(snap).toMatchObject({ average: 0, rate: 0 });
+  });
+
+  it('publishes no average for a turn shorter than one second, even once paused', () => {
+    const meter = new TokenSpeedMeter();
+    meter.start(0);
+    meter.recordDelta('a b c d e f g h i j', 900);
+    meter.pause(900);
+    const paused = meter.snapshot(30_000)!;
+    expect(paused).toMatchObject({ streaming: false, tokens: 10, elapsedMs: 900, average: 0, rate: 0 });
+    // A second of generation makes the same count measurable again.
+    meter.start(30_000);
+    meter.recordDelta('a', 30_100);
+    expect(meter.snapshot(30_100)!.average).toBeCloseTo(11, 5);
+    meter.stop(10, 30_100);
+    expect(meter.snapshot()!.average).toBeCloseTo(10, 5);
+  });
+
+  it('discards a held burst flushed faster than any real decode speed', () => {
+    const meter = new TokenSpeedMeter();
+    meter.start(0);
+    // 100 tok/s up to a tool pause, then the held output arrives in one 100ms frame.
+    for (let t = 100; t <= 3_000; t += 100) meter.recordDelta('a b c d e f g h i j', t);
+    const steady = meter.snapshot(3_000)!.rate;
+    expect(steady).toBeCloseTo(100, 5);
+    meter.pause(3_000);
+    meter.start(10_000);
+    meter.recordDelta(Array.from({ length: 12_000 }, () => 'w').join(' '), 10_100);
+    const burst = meter.snapshot(10_100)!;
+    // 12 000 tokens over the 100ms minimum span is 120 000 tok/s: not a
+    // measurement, so the last reading stays and the peak never absorbs it.
+    expect(burst.rate).toBeCloseTo(steady, 5);
+    expect(burst.peak).toBeCloseTo(steady, 5);
+  });
+
+  it('syncs output tokens without resetting elapsed timing', () => {
+    const meter = new TokenSpeedMeter();
+    meter.start(0);
+    meter.recordDelta('a b c', 500);
+    expect(meter.snapshot(500)!.tokens).toBe(3);
+    meter.syncOutputTokens(50);
+    expect(meter.snapshot(500)!.tokens).toBe(50);
+    expect(meter.snapshot(500)!.elapsedMs).toBe(500);
+  });
+
+  it('calibrates downwards when the provider reports less output than the estimate', () => {
+    const meter = new TokenSpeedMeter();
+    meter.start(0);
+    meter.recordDelta('a b c d e f g h i j k l', 1_000);
+    expect(meter.snapshot(1_000)!.tokens).toBe(12);
+    meter.syncOutputTokens(5);
+    // The stale estimate must not survive: it was never billed output.
+    expect(meter.snapshot(1_000)).toMatchObject({ tokens: 5, average: 5 });
+    // Repeated syncs are totals, not deltas.
+    meter.syncOutputTokens(5);
+    expect(meter.snapshot(1_000)!.tokens).toBe(5);
+    meter.stop(4, 2_000);
+    expect(meter.snapshot()!.tokens).toBe(4);
+  });
 });
 
 describe('UsageTokenSpeedMeter', () => {

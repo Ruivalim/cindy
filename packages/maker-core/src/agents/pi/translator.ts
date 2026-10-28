@@ -115,6 +115,12 @@ export interface PiTranslateContext {
   /** turn 内 usage 分量累计(did-turn-end / ghost 订阅上报用);agent_start reset。 */
   turnInput: number;
   turnOutput: number;
+  /**
+   * 本 turn 里**父模型自己**上报的 output 累计(不含委派给子代理的用量)。
+   * 子代理在工具执行期间跑,不属于父代理的生成,绝不能进 tokenSpeed 的 token 数。
+   * agent_start 重置。
+   */
+  turnMainOutput: number;
   turnCacheRead: number;
   turnCacheWrite: number;
   turnUsageSegments: UsageSegment[];
@@ -216,6 +222,7 @@ export function createPiTranslateContext(logger: Logger): PiTranslateContext {
     turnTokens: 0,
     turnInput: 0,
     turnOutput: 0,
+    turnMainOutput: 0,
     turnCacheRead: 0,
     turnCacheWrite: 0,
     turnUsageSegments: [],
@@ -443,6 +450,7 @@ function applyUsage(
   ctx.turnTokens += input + output;
   ctx.turnInput += input;
   ctx.turnOutput += output;
+  ctx.turnMainOutput += output;
   ctx.turnCacheRead += cacheRead;
   ctx.turnCacheWrite += cacheWrite;
   ctx.contextTokens = input + cacheRead + cacheWrite;
@@ -693,6 +701,7 @@ export function translatePiEvent(
       ctx.turnTokens = 0;
       ctx.turnInput = 0;
       ctx.turnOutput = 0;
+      ctx.turnMainOutput = 0;
       ctx.turnCacheRead = 0;
       ctx.turnCacheWrite = 0;
       ctx.turnUsageSegments = [];
@@ -731,10 +740,14 @@ export function translatePiEvent(
       if (role && role !== 'assistant') return;
       ctx.thinkingBlocks.clear();
       ctx.streamStopTokenByIndex.clear();
-      const message = event.message as { usage?: PiUsage } | undefined;
+      const message = event.message as { usage?: PiUsage; timestamp?: number } | undefined;
       const bridgedPriceVariant = priceVariantFromServiceTier(message?.usage?.service_tier);
       ctx.pendingPriceVariants.push(bridgedPriceVariant ?? ctx.getPriceVariant?.() ?? 'standard');
       startPiGenerationHeartbeat(ctx);
+      const startAt = typeof message?.timestamp === 'number' && Number.isFinite(message.timestamp) && message.timestamp > 0
+        ? message.timestamp
+        : Date.now();
+      ctx.tokenSpeed.start(startAt);
       // Activity may advance before usage; the rate retains the last completed sample.
       pushStatus(queue, ctx, 'Working…', true);
       return;
@@ -823,11 +836,18 @@ export function translatePiEvent(
           },
         });
       }
+      ctx.tokenSpeed.pause();
+      // Only the parent's own reported output calibrates the meter; delegated
+      // subagent tokens belong to the tool window, not to parent generation.
+      // The value is the turn's total, not a delta, so it calibrates the count in
+      // both directions — an estimate that overshot must not survive.
+      ctx.tokenSpeed.syncOutputTokens(ctx.turnMainOutput);
       pushStatus(queue, ctx, 'Working…', true);
       return;
     }
 
     case 'tool_execution_start': {
+      ctx.tokenSpeed.pause();
       ctx.cacheRecoveryHasOutput = true;
       const toolUseId = String(event.toolCallId ?? '');
       const toolName = String(event.toolName ?? 'tool');
@@ -990,7 +1010,7 @@ export function translatePiEvent(
       ctx.turnSettled = true;
       ctx.isStreaming = false;
       ctx.pendingPriceVariants = [];
-      ctx.tokenSpeed.stop(ctx.turnOutput);
+      ctx.tokenSpeed.stop(ctx.turnMainOutput);
       stopPiGenerationHeartbeat(ctx);
       const hostAbortRequested = isCurrentTurnHostAbortRequested(ctx);
       const pendingAssistantError = hostAbortRequested ? null : ctx.pendingAssistantError;

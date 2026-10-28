@@ -234,6 +234,28 @@ describe('TokenSpeedMeter (pi-token-speed algorithm)', () => {
     expect(burst.peak).toBeCloseTo(steady, 5);
   });
 
+  it('keeps the burst out of the following windows so the next delta reads its own pace', () => {
+    const meter = new TokenSpeedMeter();
+    meter.start(0);
+    // Steady 100 tok/s before the burst, so the last valid reading is 100.
+    for (let t = 100; t <= 1_000; t += 100) meter.recordDelta('a b c d e f g h i j', t);
+    const steady = meter.snapshot(1_000)!.rate;
+    expect(steady).toBeCloseTo(100, 5);
+    // A held burst is flushed in one 100ms frame → 1 750 tokens / 0.1s = 17 500
+    // tok/s, above any real decode speed, so it is discarded as unmeasurable.
+    meter.recordDelta(Array.from({ length: 1_750 }, () => 'w').join(' '), 1_100);
+    expect(meter.snapshot(1_100)!.rate).toBeCloseTo(steady, 5);
+    expect(meter.snapshot(1_100)!.peak).toBeCloseTo(steady, 5);
+    // 110ms later a normal 5-token delta arrives. The burst must not be part of
+    // its window: 1 755 tokens / 110ms would read ~15 954 tok/s (and 180 tokens
+    // would still read 1 636), so the reading must come from the new delta alone,
+    // measured [1 100, 1 210], and the peak must not absorb the burst.
+    meter.recordDelta('a b c d e', 1_210);
+    const after = meter.snapshot(1_210)!;
+    expect(after.rate).toBeCloseTo((5 * 1_000) / 110, 5);
+    expect(after.peak).toBeCloseTo(steady, 5);
+  });
+
   it('syncs output tokens without resetting elapsed timing', () => {
     const meter = new TokenSpeedMeter();
     meter.start(0);

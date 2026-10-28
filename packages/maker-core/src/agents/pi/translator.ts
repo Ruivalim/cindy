@@ -121,6 +121,30 @@ export interface PiTranslateContext {
    * agent_start 重置。
    */
   turnMainOutput: number;
+  /**
+   * 本 turn 里每一条 assistant message 是否都上报了完整的 output usage。
+   * 只有全为 true 时,`turnMainOutput` 才是本 turn 的完整 output;
+   * 任何一条 message 缺 output usage(错误/中断/未计费)都会置 false。
+   * 缺 usage 的那部分 token 记在 `unreportedEstimatedOutput` 里,TPS 终值始终是
+   * `turnMainOutput + unreportedEstimatedOutput`,所以本字段仅供诊断/上报使用。
+   * agent_start 重置为 true。
+   */
+  turnMainOutputUsageComplete: boolean;
+  /**
+   * 本 turn 里**没有上报 output usage** 的那些 message 的流式估算增量之和。
+   *
+   * `turnMainOutput` 只覆盖上报了 usage 的 message；缺失 usage 的那几轮(错误/中断/未计费)
+   * 只能靠流式估算记账。后续一条带 usage 的 message 校准时必须带上这份补偿,
+   * 否则 `syncOutputTokens(turnMainOutput)` 会把那些已估算、确实生成过的 token 抹掉。
+   * agent_start 重置为 0。
+   */
+  unreportedEstimatedOutput: number;
+  /**
+   * 计量器当前计数与已上报 usage 的对账锚点：上一条 message_end 结束时计量器里的
+   * (已校准)token 数。下次 message_end 用它算出本条 message 的流式估算增量。
+   * agent_start 重置为 0。
+   */
+  lastCalibratedTokens: number;
   turnCacheRead: number;
   turnCacheWrite: number;
   turnUsageSegments: UsageSegment[];
@@ -223,6 +247,9 @@ export function createPiTranslateContext(logger: Logger): PiTranslateContext {
     turnInput: 0,
     turnOutput: 0,
     turnMainOutput: 0,
+    turnMainOutputUsageComplete: true,
+    unreportedEstimatedOutput: 0,
+    lastCalibratedTokens: 0,
     turnCacheRead: 0,
     turnCacheWrite: 0,
     turnUsageSegments: [],
@@ -702,6 +729,9 @@ export function translatePiEvent(
       ctx.turnInput = 0;
       ctx.turnOutput = 0;
       ctx.turnMainOutput = 0;
+      ctx.turnMainOutputUsageComplete = true;
+      ctx.unreportedEstimatedOutput = 0;
+      ctx.lastCalibratedTokens = 0;
       ctx.turnCacheRead = 0;
       ctx.turnCacheWrite = 0;
       ctx.turnUsageSegments = [];
@@ -841,7 +871,28 @@ export function translatePiEvent(
       // subagent tokens belong to the tool window, not to parent generation.
       // The value is the turn's total, not a delta, so it calibrates the count in
       // both directions — an estimate that overshot must not survive.
-      ctx.tokenSpeed.syncOutputTokens(ctx.turnMainOutput);
+      // Without a reported output count (e.g. an error or unbilled response)
+      // a bare `turnMainOutput` would erase a valid streamed estimate, so the
+      // missing-usage messages keep their estimate in `unreportedEstimatedOutput`
+      // and every later calibration carries it: reported output + estimates.
+      const meterTokens = ctx.tokenSpeed.snapshot()?.tokens ?? 0;
+      const messageEstimate = Math.max(0, meterTokens - ctx.lastCalibratedTokens);
+      if (typeof message.usage?.output === 'number') {
+        // The calibrated value holds the whole turn (every reported message plus
+        // every estimated one), so a later retry cannot drop earlier estimates.
+        const targetTokens = ctx.turnMainOutput + ctx.unreportedEstimatedOutput;
+        ctx.tokenSpeed.syncOutputTokens(targetTokens);
+        ctx.lastCalibratedTokens = targetTokens;
+      } else {
+        // A message without output usage means `turnMainOutput` no longer covers
+        // the whole turn; settlement must not use it as the final total either.
+        // Its streamed tokens are real generation the provider did not bill, so
+        // park the estimate in the turn total instead of letting the next
+        // calibration overwrite it.
+        ctx.turnMainOutputUsageComplete = false;
+        ctx.unreportedEstimatedOutput += messageEstimate;
+        ctx.lastCalibratedTokens = meterTokens;
+      }
       pushStatus(queue, ctx, 'Working…', true);
       return;
     }
@@ -1010,7 +1061,12 @@ export function translatePiEvent(
       ctx.turnSettled = true;
       ctx.isStreaming = false;
       ctx.pendingPriceVariants = [];
-      ctx.tokenSpeed.stop(ctx.turnMainOutput);
+      // `turnMainOutput` only covers messages that reported output usage, so the
+      // settled total is the reported output plus the estimates parked for the
+      // messages without usage. Every message_end re-anchored `lastCalibratedTokens`,
+      // so `unreportedEstimatedOutput` never double counts a reported message.
+      const finalTokens = ctx.turnMainOutput + ctx.unreportedEstimatedOutput;
+      ctx.tokenSpeed.stop(finalTokens);
       stopPiGenerationHeartbeat(ctx);
       const hostAbortRequested = isCurrentTurnHostAbortRequested(ctx);
       const pendingAssistantError = hostAbortRequested ? null : ctx.pendingAssistantError;

@@ -10,7 +10,8 @@ import type { TokenSpeedSnapshot } from '@cindy/maker-shared/usage-format';
  * - current speed = tokens in the last 1s window / time since the token
  *   before them, or since generation resumed (min 100ms); a window with
  *   fewer than 5 tokens keeps the previous reading, and a reading above
- *   10 000 tok/s is discarded as a flushed burst, never shown as a spike;
+ *   10 000 tok/s is discarded as a flushed burst, never shown as a spike and
+ *   never counted towards the following windows either;
  * - the clock pauses when a tool call ends and resumes when
  *   the next content block starts or the next counted delta arrives;
  * - at turn end the count is snapped to the provider's real output and the
@@ -115,6 +116,20 @@ export class TokenSpeedMeter {
     const tokens = estimateDeltaTokens(text);
     if (tokens <= 0) return false;
     this.tokenCount += tokens;
+
+    // Detect single-frame held bursts: when a vendor flushes a large block
+    // much faster than any real generation speed, it must not join the live
+    // sliding window or dilute/pollute subsequent genuine deltas.
+    const lastTime = this.events.length > 0 ? this.events[this.events.length - 1].time : this.startTime;
+    const deltaSpan = Math.max(0, now - Math.max(lastTime, this.resumedAt));
+    if ((tokens * 1_000) / Math.max(deltaSpan, MIN_SPAN_MS) > MAX_VALID_TPS) {
+      this.windowStartIndex = this.events.length;
+      this.resumedAt = now;
+      if (now - this.lastPublishAt < PUBLISH_INTERVAL_MS) return false;
+      this.lastPublishAt = now;
+      return true;
+    }
+
     this.events.push({ time: now, tokens });
     if (this.windowStartIndex >= COMPACTION_THRESHOLD) {
       // Keep the event before the window: it bounds the span of the window's first token.
@@ -234,7 +249,16 @@ export class TokenSpeedMeter {
     const tps = (1_000 * windowTokens) / span;
     // A whole held burst landing in a few ms reads far above any real decode
     // speed; treat it as unmeasurable so the previous reading stays.
-    if (tps > MAX_VALID_TPS) return undefined;
+    if (tps > MAX_VALID_TPS) {
+      // Those tokens were not decoded inside this span. Leaving them in the
+      // window would let the next genuine delta divide the whole burst by its
+      // own short gap (e.g. 180 tokens over 110ms still reads 1 600 tok/s) and
+      // pollute both the live rate and the peak, so drop them from every later
+      // window: the next window starts after the burst.
+      this.windowStartIndex = this.events.length;
+      this.resumedAt = now;
+      return undefined;
+    }
     return tps;
   }
 }

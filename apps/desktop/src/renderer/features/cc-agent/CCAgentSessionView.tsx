@@ -6863,7 +6863,10 @@ function RunningStatusBar({
             {showRatePanel && (
               <RunningTokenRatePopover
                 elapsedText={elapsedText}
-                rate={latestRateText}
+                // 工具执行期间(host 已 pause)没有"当前"速度:latestRate 缓存着生成
+                // 结束前的读数(60s 内仍新),打开浮窗会显示成仍在跑。平均速度与峰值
+                // 仍然保留,它们描述的是已经发生的生成。
+                rate={tokenSpeed && !tokenSpeed.streaming ? null : latestRateText}
                 rateText={
                   workflowWaiting ||
                   sideTaskRunning ||

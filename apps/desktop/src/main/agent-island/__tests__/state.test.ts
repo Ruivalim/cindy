@@ -2997,6 +2997,18 @@ describe('Agent Island 终态驻留 TTL(完成最多保留一天,报错沿用短
     expect(getNextAgentIslandTimerAt(state, afterDwell)).toBe(2_000 + AGENT_ISLAND_COMPLETED_RETENTION_MS);
   });
 
+  it('已读完成条目也会排到一天后的截止刷新,不会靠后续事件才消失', () => {
+    const state = createAgentIslandState();
+    setAgentIslandVisibleSession(state, 'done', 1_900);
+    setAgentIslandAppFocused(state, true, 1_950);
+    applyAgentIslandEvent(state, { sessionId: 'done', title: 'Schedule' }, doneEvent(), 2_000);
+
+    // 用户正看着该会话:完成不挂未读,只走短暂 dwell。dwell 结束后仍必须有一个
+    // 一天后的定时器,否则停在岛内的已读卡片可能一直留着。
+    const afterDwell = 2_000 + AGENT_ISLAND_COMPLETION_DWELL_MS + 1;
+    expect(getNextAgentIslandTimerAt(state, afterDwell)).toBe(2_000 + AGENT_ISLAND_COMPLETED_RETENTION_MS);
+  });
+
   it('unread completed 超过一天后离开岛面,独立账本仍在,远程快照继续带 attention', () => {
     const state = createAgentIslandState();
     applyAgentIslandEvent(state, { sessionId: 'done', title: 'Schedule' }, doneEvent(), 2_000);

@@ -1767,6 +1767,7 @@ export function getNextAgentIslandTimerAt(state: AgentIslandState, now: number):
       session.toolDetailUntil,
       session.messagePreview?.until,
       unreadIslandTtlAt(session),
+      completedRetentionDeadlineAt(session),
     ]) {
       if (value && value > now && (next === null || value < next)) {
         next = value;
@@ -2940,9 +2941,8 @@ function unreadIslandTtlAt(session: AgentIslandSessionState): number | null {
 
 /** 终态条目在岛面的保留截止时刻。完成按首次完成时间算一天,报错沿用短 TTL。 */
 function terminalRetentionAt(session: AgentIslandSessionState): number {
-  if (isRetentionScopedCompletedSession(session)) {
-    return (session.completedAt ?? session.lastActivityAt) + AGENT_ISLAND_COMPLETED_RETENTION_MS;
-  }
+  const completedDeadline = completedRetentionDeadlineAt(session);
+  if (completedDeadline !== null) return completedDeadline;
   return session.lastActivityAt + AGENT_ISLAND_UNREAD_TRANSIENT_TTL_MS;
 }
 
@@ -2951,9 +2951,18 @@ function isRetentionScopedCompletedSession(session: AgentIslandSessionState): bo
   return !session.groupChat && !session.companionChat && session.phase === 'completed';
 }
 
+/**
+ * 完成条目的保留截止时刻。已读卡片也要走这个截止刷新:否则用户停在岛内时
+ * preserveExpiredTransient 会一直留着卡片,却没有事件触发第二天的 prune。
+ */
+function completedRetentionDeadlineAt(session: AgentIslandSessionState): number | null {
+  if (!isRetentionScopedCompletedSession(session)) return null;
+  return (session.completedAt ?? session.lastActivityAt) + AGENT_ISLAND_COMPLETED_RETENTION_MS;
+}
+
 function isCompletedSessionExpired(session: AgentIslandSessionState, now: number): boolean {
-  return isRetentionScopedCompletedSession(session)
-    && now >= (session.completedAt ?? session.lastActivityAt) + AGENT_ISLAND_COMPLETED_RETENTION_MS;
+  const deadline = completedRetentionDeadlineAt(session);
+  return deadline !== null && now >= deadline;
 }
 
 function toRemoteUnreadSnapshot(unread: AgentIslandRemoteUnreadTerminal): AgentIslandSessionSnapshot {

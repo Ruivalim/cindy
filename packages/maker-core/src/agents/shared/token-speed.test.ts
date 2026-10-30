@@ -202,6 +202,24 @@ describe('TokenSpeedMeter (pi-token-speed algorithm)', () => {
     expect(snap).toMatchObject({ average: 0, rate: 0 });
   });
 
+  it('keeps a sub-100ms burst out of subsequent windows so the next delta reads its own pace without inflating peak', () => {
+    const meter = new TokenSpeedMeter();
+    meter.start(0);
+    // 175 tokens arriving at 10ms (sub-100ms held burst)
+    meter.recordDelta(Array.from({ length: 175 }, () => 'w').join(' '), 10);
+    expect(meter.snapshot(10)!.rate).toBe(0);
+    expect(meter.snapshot(10)!.peak).toBeUndefined();
+
+    // At 110ms, a normal 5-token delta arrives. The 175-token burst must not be
+    // combined into this window (which would read ~1 636 tok/s and inflate peak):
+    // the reading must reflect only the new delta measured over [10, 110].
+    meter.recordDelta('a b c d e', 110);
+    const snap = meter.snapshot(110)!;
+    expect(snap.rate).toBeCloseTo((5 * 1_000) / (110 - 10), 5);
+    expect(snap.peak).toBeCloseTo(50, 5);
+    expect(snap.tokens).toBe(180);
+  });
+
   it('publishes no average for a turn shorter than one second, even once paused', () => {
     const meter = new TokenSpeedMeter();
     meter.start(0);

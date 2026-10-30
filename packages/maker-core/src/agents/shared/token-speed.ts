@@ -122,7 +122,8 @@ export class TokenSpeedMeter {
     // sliding window or dilute/pollute subsequent genuine deltas.
     const lastTime = this.events.length > 0 ? this.events[this.events.length - 1].time : this.startTime;
     const deltaSpan = Math.max(0, now - Math.max(lastTime, this.resumedAt));
-    if ((tokens * 1_000) / Math.max(deltaSpan, MIN_SPAN_MS) > MAX_VALID_TPS) {
+    const arrivalSpan = deltaSpan > 0 ? deltaSpan : tokens < MIN_WINDOW_TOKENS ? MIN_SPAN_MS : 1;
+    if ((tokens * 1_000) / arrivalSpan > MAX_VALID_TPS) {
       this.windowStartIndex = this.events.length;
       this.resumedAt = now;
       if (now - this.lastPublishAt < PUBLISH_INTERVAL_MS) return false;
@@ -245,21 +246,17 @@ export class TokenSpeedMeter {
     const previous = this.windowStartIndex > 0 ? this.events[this.windowStartIndex - 1].time : this.startTime;
     const spanStart = Math.max(previous, this.resumedAt);
     const span = now - spanStart;
-    if (span < MIN_SPAN_MS) return undefined;
-    const tps = (1_000 * windowTokens) / span;
     // A whole held burst landing in a few ms reads far above any real decode
-    // speed; treat it as unmeasurable so the previous reading stays.
-    if (tps > MAX_VALID_TPS) {
-      // Those tokens were not decoded inside this span. Leaving them in the
-      // window would let the next genuine delta divide the whole burst by its
-      // own short gap (e.g. 180 tokens over 110ms still reads 1 600 tok/s) and
-      // pollute both the live rate and the peak, so drop them from every later
-      // window: the next window starts after the burst.
+    // speed; treat it as unmeasurable so the previous reading stays. Drop it
+    // from later windows so the next genuine delta does not divide the whole
+    // burst by its own short gap (e.g. 180 tokens over 110ms reads 1 600 tok/s).
+    if ((1_000 * windowTokens) / Math.max(span, 1) > MAX_VALID_TPS) {
       this.windowStartIndex = this.events.length;
       this.resumedAt = now;
       return undefined;
     }
-    return tps;
+    if (span < MIN_SPAN_MS) return undefined;
+    return (1_000 * windowTokens) / span;
   }
 }
 

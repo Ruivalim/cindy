@@ -5746,6 +5746,8 @@
           "copy": "Link kopieren",
           "copied": "Beitrittslink kopiert",
           "newLink": "Neuer Link",
+          "enlarge": "Vergrößern",
+          "close": "Schließen",
           "waiting": "Warten auf eine Geräteanfrage…"
         },
         "requests": {

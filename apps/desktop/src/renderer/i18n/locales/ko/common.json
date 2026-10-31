@@ -5715,6 +5715,8 @@
           "copy": "링크 복사",
           "copied": "참여 링크를 복사했습니다",
           "newLink": "새 링크",
+          "enlarge": "크게 보기",
+          "close": "닫기",
           "waiting": "기기의 참여 요청을 기다리는 중…"
         },
         "requests": {

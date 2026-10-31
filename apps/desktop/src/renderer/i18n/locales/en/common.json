@@ -5747,6 +5747,8 @@
           "copy": "Copy link",
           "copied": "Join link copied",
           "newLink": "New link",
+          "enlarge": "Enlarge",
+          "close": "Close",
           "waiting": "Waiting for a device to ask…"
         },
         "requests": {

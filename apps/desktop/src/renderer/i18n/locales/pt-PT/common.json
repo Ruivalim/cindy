@@ -5790,6 +5790,8 @@
           "copy": "Copiar ligação",
           "copied": "Ligação de adesão copiada",
           "newLink": "Nova ligação",
+          "enlarge": "Ampliar",
+          "close": "Fechar",
           "waiting": "A aguardar um pedido de dispositivo…"
         },
         "requests": {

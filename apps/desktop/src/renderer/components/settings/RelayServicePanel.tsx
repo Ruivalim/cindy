@@ -309,17 +309,25 @@ function AddDevice({
 }) {
   const { t } = useTranslation();
   const [qr, setQr] = useState<string | null>(null);
+  const [enlarged, setEnlarged] = useState<string | null>(null);
+  const [enlargeOpen, setEnlargeOpen] = useState(false);
   const link = state.joinLink?.link ?? null;
   const k = 'settings.remoteControl.relay.add';
 
   useEffect(() => {
     if (!link) {
       setQr(null);
+      setEnlarged(null);
+      setEnlargeOpen(false);
       return;
     }
     let active = true;
+    // 放大版单独按大尺寸生成,避免把 200px 的图拉伸到看不清、扫不上
     void QRCode.toDataURL(link, { margin: 2, width: 200 }).then((url) => {
       if (active) setQr(url);
+    });
+    void QRCode.toDataURL(link, { margin: 2, width: 640 }).then((url) => {
+      if (active) setEnlarged(url);
     });
     return () => {
       active = false;
@@ -352,9 +360,29 @@ function AddDevice({
                 <Button variant="secondary" size="sm" disabled={controller.busy} onClick={() => void controller.run({ type: 'create-join-link' })}>
                   {t(`${k}.newLink`)}
                 </Button>
+                <Button variant="secondary" size="sm" disabled={!enlarged} onClick={() => setEnlargeOpen(true)}>
+                  {t(`${k}.enlarge`)}
+                </Button>
               </div>
             </div>
           </div>
+          <FormDialog
+            open={enlargeOpen && enlarged !== null}
+            onClose={() => setEnlargeOpen(false)}
+            title={t(`${k}.qrAlt`)}
+            description={t(`${k}.hint`)}
+          >
+            <div className="flex justify-center px-4 pb-4">
+              {enlarged ? (
+                <img src={enlarged} alt={t(`${k}.qrAlt`)} className="aspect-square w-full max-w-[min(440px,60vh)] rounded-xl" />
+              ) : null}
+            </div>
+            <DialogFooter>
+              <Button variant="secondary" size="sm" onClick={() => setEnlargeOpen(false)}>
+                {t(`${k}.close`)}
+              </Button>
+            </DialogFooter>
+          </FormDialog>
           {state.pendingRequests.length === 0 ? <Hint>{t(`${k}.waiting`)}</Hint> : null}
         </>
       ) : (

@@ -5715,6 +5715,8 @@
           "copy": "複製連結",
           "copied": "已複製加入連結",
           "newLink": "重新產生",
+          "enlarge": "放大",
+          "close": "關閉",
           "waiting": "等待裝置申請…"
         },
         "requests": {

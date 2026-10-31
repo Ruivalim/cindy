@@ -5790,6 +5790,8 @@
           "copy": "Copiar link",
           "copied": "Link de conexão copiado",
           "newLink": "Novo link",
+          "enlarge": "Ampliar",
+          "close": "Fechar",
           "waiting": "Aguardando solicitação de um dispositivo…"
         },
         "requests": {

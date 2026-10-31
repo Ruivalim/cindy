@@ -16,6 +16,7 @@ export default {
     'retry-check-error': { about: 'A failed retry check stays in the deployment dialog with a visible error' },
     'deploy-steady': { about: 'Choosing a server, its check, each deployment step and the finished page keep the dialog and form fields in place' },
     multi: { about: 'Two server relays, one in use; renaming the other and deploying again stay available' },
+    'join-link': { about: 'A join link is ready: Enlarge opens a large, sharply rendered QR code that closes with its own button' },
   },
   async check(page, ui) {
     const route = 'settings.remoteControl.relay.route';
@@ -166,6 +167,20 @@ export default {
       await dialog.waitFor();
       await ui.capture('join-dialog');
       await dialog.getByRole('button', { name: await ui.t(`${relay}.join.cancel`), exact: true }).click();
+      await dialog.waitFor({ state: 'detached' });
+    } else if (ui.case === 'join-link') {
+      const add = `${relay}.add`;
+      await page.getByRole('button', { name: await ui.t(`${relay}.actions.editHost`), exact: true }).waitFor();
+      await page.getByRole('button', { name: await ui.t(`${add}.enlarge`), exact: true }).click();
+      const dialog = page.getByRole('dialog', { name: await ui.t(`${add}.qrAlt`), exact: true });
+      await dialog.waitFor();
+      // 放大版按大尺寸重新生成,不是把 200px 的小图拉伸。
+      const qr = dialog.getByRole('img', { name: await ui.t(`${add}.qrAlt`), exact: true });
+      const { natural, shown } = await qr.evaluate((img) => ({ natural: img.naturalWidth, shown: img.getBoundingClientRect().width }));
+      assert.ok(natural >= shown, `enlarged QR is upscaled: ${natural}px shown at ${shown}px`);
+      assert.ok(shown > 300, `enlarged QR is not larger than the inline one: ${shown}px`);
+      await ui.capture('qr-enlarged');
+      await dialog.getByRole('button', { name: await ui.t(`${add}.close`), exact: true }).click();
       await dialog.waitFor({ state: 'detached' });
     } else if (ui.case === 'server') {
       assert.ok(await serverRow.getByText(await ui.t(`${relay}.manage.deviceCount`, { count: 3 }), { exact: true }).isVisible());

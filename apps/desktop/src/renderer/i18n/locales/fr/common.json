@@ -5790,6 +5790,8 @@
           "copy": "Copier le lien",
           "copied": "Lien d'invitation copié",
           "newLink": "Nouveau lien",
+          "enlarge": "Agrandir",
+          "close": "Fermer",
           "waiting": "En attente d'une demande d'un appareil…"
         },
         "requests": {

@@ -382,9 +382,10 @@ function AddDevice({
             title={t(`${k}.qrTitle`)}
             description={t(`${k}.hint`)}
           >
-            <div className="flex justify-center px-4 pb-4">
+            {/* 窗口很矮（最小窗口加界面缩放）时 QR 跟着缩小，底部关闭按钮始终可见。 */}
+            <div className="flex min-h-0 flex-1 justify-center overflow-y-auto px-4 pb-4">
               {enlarged ? (
-                <img src={enlarged} alt={t(`${k}.qrAlt`)} className="aspect-square w-full max-w-[min(440px,60vh)] rounded-xl" />
+                <img src={enlarged} alt={t(`${k}.qrAlt`)} className="aspect-square max-h-full w-full max-w-[min(440px,60vh)] rounded-xl object-contain" />
               ) : null}
             </div>
             <DialogFooter>

@@ -24,8 +24,11 @@ import type { DrizzleScheduleStorage, SchedulerDrizzleDb } from './storage';
  * into the scheduler DB.
  *
  * Project schedules are mandatory project-lead configuration, similar to lint
- * rules. Users cannot reject them; opt-out is deleting the file or pausing a
- * single schedule. The project_automation_consents table now only records the
+ * rules. Users can pause a schedule or remove the file. Importing configuration
+ * does not authorize host commands: the runner rejects project schedules with
+ * pre-run hooks, including previously persisted entries. Keep the hook intact
+ * so rejection cannot silently bypass a precondition and start the agent.
+ * The project_automation_consents table now only records the
  * last successfully reconciled hash so renderer toasts can be deduped. The old
  * consent meaning is deprecated.
  */

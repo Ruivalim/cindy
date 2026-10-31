@@ -111,6 +111,20 @@ function createRunner(getSessionMeta: Maker['getSessionMeta']) {
 }
 
 describe('MakerScheduleRunner pre-run hook cwd 解析', () => {
+  // #8237 / CINDY-001, unit: fire must reject a repository-supplied command
+  // before shell or agent dispatch. Existing cwd tests only covered user hooks.
+  // Include restart recovery: it clears preRunHook before dispatching otherwise.
+  it.each([undefined, 'resumed-session'])('rejects imported hooks, including persisted schedules (resume=%s)', async (resumeSessionId) => {
+    const { runner, maker } = createRunner(vi.fn() as never);
+    const context = { ...createFireContext(), resumeSessionId };
+    await expect(runner.fire(baseSchedule({ source: 'project' }), context))
+      .rejects.toThrow('PROJECT_AUTOMATION_HOOK_NOT_AUTHORIZED');
+    expect(mocks.executePreRunHook).not.toHaveBeenCalled();
+    expect(maker.createSession).not.toHaveBeenCalled();
+    expect(mocks.restoreArchivedSessionForSend).not.toHaveBeenCalled();
+    expect(context.onPreRunHookCompleted).not.toHaveBeenCalled();
+  });
+
   it.each(['deleted'])('stops a %s heartbeat before running any hook', async (status) => {
     mocks.getSessionRowSnapshot.mockResolvedValueOnce({ status });
     const { runner, notifier } = createRunner(vi.fn() as never);

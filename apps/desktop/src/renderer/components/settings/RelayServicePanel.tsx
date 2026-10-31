@@ -163,6 +163,8 @@ function FormDialog({
   description: string;
   children: React.ReactNode;
 }) {
+  // 这些窗口没有 Radix Trigger,默认关闭时焦点落到 null:记下打开前的按钮,关闭后还给它。
+  const openerRef = useRef<HTMLElement | null>(null);
   return (
     <Dialog.Root
       open={open}
@@ -174,6 +176,14 @@ function FormDialog({
         <Dialog.Overlay className="modal-scrim fixed inset-0 z-[10000]" />
         <Dialog.Content
           onPointerDownOutside={(event) => event.preventDefault()}
+          onOpenAutoFocus={() => {
+            const active = document.activeElement;
+            openerRef.current = active instanceof HTMLElement && active !== document.body ? active : null;
+          }}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            if (openerRef.current?.isConnected) openerRef.current.focus({ preventScroll: true });
+          }}
           className="modal-panel fixed left-1/2 top-1/2 z-[10001] flex max-h-[88vh] w-[min(480px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 flex-col outline-none"
         >
           <div className="flex flex-col gap-1 px-4 pb-4 pt-4">

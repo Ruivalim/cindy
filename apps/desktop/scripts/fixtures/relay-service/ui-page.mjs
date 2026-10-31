@@ -192,6 +192,14 @@ export default {
       await ui.capture('qr-enlarged');
       await dialog.getByRole('button', { name: await ui.t(`${add}.close`), exact: true }).click();
       await dialog.waitFor({ state: 'detached' });
+      // The dialog has no Radix Trigger: closing it with the button or Esc must hand focus back to Enlarge.
+      const enlargeFocused = () => enlarge.evaluate((el) => el === document.activeElement);
+      assert.ok(await enlargeFocused(), 'focus not restored to Enlarge after Close');
+      await page.keyboard.press('Enter');
+      await dialog.waitFor();
+      await page.keyboard.press('Escape');
+      await dialog.waitFor({ state: 'detached' });
+      assert.ok(await enlargeFocused(), 'focus not restored to Enlarge after Esc');
     } else if (ui.case === 'server') {
       assert.ok(await serverRow.getByText(await ui.t(`${relay}.manage.deviceCount`, { count: 3 }), { exact: true }).isVisible());
       assert.equal(await serverRow.getByRole('button', { name: removeLabel, exact: true }).count(), 1);

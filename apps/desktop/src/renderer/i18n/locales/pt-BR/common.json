@@ -8719,7 +8719,7 @@
     "localModeDescription": "Não é necessário ter uma conta do Cindy. Os dados ficam neste dispositivo; modelos na nuvem, acesso entre dispositivos e serviços do marketplace ficam indisponíveis.",
     "consentStatement": "Aceito os <terms>Termos de Serviço</terms> e a <privacy>Política de Privacidade</privacy>",
     "consentDialog": {
-      "title": "Termos e privacidade",
+      "title": "Termos e Política de Privacidade",
       "body": "Para continuar, leia e aceite os <terms>Termos de Serviço</terms> e a <privacy>Política de Privacidade</privacy> da Cindy.",
       "agree": "Aceitar",
       "disagree": "Agora não"

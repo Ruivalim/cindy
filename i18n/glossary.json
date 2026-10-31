@@ -1515,7 +1515,7 @@
         "pt-BR": "Termos de Serviço"
       },
       "checkCase": false,
-      "note": "与 privacy-policy 成对的法律文件名，取自现有 termsOfServiceLabel 与 login.consentDialog.body。登录协议行是单行槽（DESIGN.md §16.2 预算约 61 个拉丁字符），fr 的「J'accepte les Conditions d'utilisation et la Politique de confidentialité」超出预算，协议行暂用简称「Conditions」（#8188 / #8181），弹窗正文与设置页仍用全称。待裁决：协议行的 fr 简称用「Conditions」还是「CGU」，或调整版式。"
+      "note": "与 privacy-policy 成对的法律文件名，取自现有 termsOfServiceLabel 与 login.consentDialog.body。登录协议行与协议弹窗标题是单行槽（DESIGN.md §16.2），带两个全称的句子超出预算，所以这两处只缩写本条（privacy-policy 保持已裁决全称）：协议行 fr「CGU」；弹窗标题 es「Términos」、fr「CGU」、de「Bedingungen」、pt「Termos」（#8188 / #8181）。弹窗正文与设置页仍用全称。待裁决：这些单行槽简称（尤其 fr 用「CGU」还是其他写法）。"
     },
     {
       "id": "overview",

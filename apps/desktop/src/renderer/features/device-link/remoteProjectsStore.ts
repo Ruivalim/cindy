@@ -97,6 +97,16 @@ let archivedFailedDeviceIds: ReadonlySet<string> = new Set();
  * 对齐缓存名,避免下一轮拉取用旧名回填。这与「会话真相」无关,是设备元数据的即时性补丁。
  */
 const renameSubs = new Set<(deviceId: string, name: string) => void>();
+/**
+ * 远端会话「已消失」通知订阅(sessionId)。被控端删除任务、设备被移除这两条路径都不经过本机
+ * `sessionsStore`(它们的生命周期只走 `applyPatch`),而窗口内拿着 sessionId 的旁路状态
+ * (如任务浏览栈)必须能跟着摘掉死目标,否则后退会把用户送到一个已经打不开的任务上。
+ */
+const removedSubs = new Set<(sessionId: string) => void>();
+
+function emitRemoved(sessionId: string): void {
+  for (const fn of removedSubs) fn(sessionId);
+}
 
 /**
  * snapshot epoch(per-device):防「旧 snapshot 覆盖新 snapshot」。listing tier 发起一次
@@ -147,6 +157,17 @@ function invalidateDeviceSnapshotEpochs(deviceId: string): void {
     const key = snapshotEpochKey(deviceId, status);
     snapshotEpoch.set(key, (snapshotEpoch.get(key) ?? 0) + 1);
   }
+}
+
+/** Includes reads/loading that have not produced a shard yet. */
+function knownDeviceIds(): Set<string> {
+  return new Set([
+    ...shards.keys(), ...detailDeviceEpoch.keys(),
+    ...[...snapshotEpoch.keys()].map((key) => key.slice(0, key.indexOf('\u0000'))),
+    ...bootstrapLoadingDeviceIds, ...bootstrapFailedDeviceIds,
+    ...archivedLoadingDeviceIds, ...archivedFailedDeviceIds,
+    ...sessionDeviceIndex.values(), ...[...pendingStatuses.values()].map((entry) => entry.token.deviceId),
+  ]);
 }
 
 /**
@@ -480,11 +501,24 @@ function recompute(): void {
   const nextVisible = CINDY_MAKE_ENABLED
     ? mergedSnapshot
     : mergedSnapshot.filter((session) => !isCindyMakeSource(session.source));
+  // Share only the UI projection. Authoritative rows must keep their new content
+  // identities so captureSessionRead still rejects details predating a snapshot.
+  // Compare the complete JSON payload (including nested metadata), not a field
+  // whitelist that could leave a newly added sidebar field stale. Same-id tasks
+  // on different computers are distinct; only the last visible set is retained.
+  const visibleKey = (session: Session) => JSON.stringify([session.deviceLinkDeviceId, session.id]);
+  const previousVisible = new Map(visibleMergedSnapshot.map((session) => [visibleKey(session), session]));
+  const sharedVisible = nextVisible.map((session) => {
+    const previous = previousVisible.get(visibleKey(session));
+    return previous && (previous === session || JSON.stringify(previous) === JSON.stringify(session))
+      ? previous
+      : session;
+  });
   if (
-    visibleMergedSnapshot.length !== nextVisible.length ||
-    visibleMergedSnapshot.some((session, index) => session !== nextVisible[index])
+    visibleMergedSnapshot.length !== sharedVisible.length ||
+    visibleMergedSnapshot.some((session, index) => session !== sharedVisible[index])
   ) {
-    visibleMergedSnapshot = nextVisible;
+    visibleMergedSnapshot = sharedVisible;
   }
   // 设备列表快照:按 deviceName(再 deviceId 兜底)稳定排序,避免 Map 插入序在设备增删时
   // 抖动导致切换栏 chip 乱跳;内容不变时保持旧引用(防 useRemoteDevices 无谓重渲染)。
@@ -842,6 +876,9 @@ const actions = {
     // 「别的控制端刚删掉的会话」的正文一直留在盘上,直到 LRU 逐出 / 设备移除 / 登出
     // (review: codex P1)。归档仍可从 Archived / All 打开，必须保留缓存供离线查看。
     if (deleted) clearCachedMessages(deviceId, sessionId);
+    // 浏览栈等旁路状态只看得到 sessionId:删除通知必须发在下面所有早退之前,会话不在
+    // 当前分片时也要能收到(同一行的消息缓存清理已出于同样理由前置)。
+    if (deleted) emitRemoved(sessionId);
     // 状态迁移叠加层:删除一律让位。active / archived 推送不带 updatedAt,可能是写库前
     // 迟到的旧推送,不动叠加层,交给写库后的列表按内容确认(见 pendingStatuses)。
     if (deleted && pendingStatuses.get(sessionId)?.token.deviceId === deviceId) {
@@ -943,7 +980,13 @@ const actions = {
   },
 
   /** 标记全部已缓存远程设备暂不可达,但不清空侧边栏会话快照。 */
-  markAllDisconnected(): void {
+  markAllDisconnected(matchesDevice?: (deviceId: string) => boolean): void {
+    if (matchesDevice) {
+      for (const deviceId of knownDeviceIds()) {
+        if (matchesDevice(deviceId)) actions.markDeviceDisconnected(deviceId);
+      }
+      return;
+    }
     for (const [k, v] of snapshotEpoch) snapshotEpoch.set(k, v + 1);
     for (const [k, v] of detailDeviceEpoch) detailDeviceEpoch.set(k, v + 1);
     const bootstrapStateChanged =
@@ -1004,11 +1047,25 @@ const actions = {
   },
 
   /** 清空所有远端项目(登出 / device-link stopped / 卸载)。 */
-  clear(): void {
+  clear(matchesDevice?: (deviceId: string) => boolean): void {
     // Logout, stopped and unmount cancel initialization as well as snapshots.
     const initialDiscoveryChanged = !initialDiscoverySettled;
     initialDiscoveryGeneration += 1;
     initialDiscoverySettled = true;
+    if (matchesDevice) {
+      for (const sessionId of new Set([
+        ...pendingTitlePreview.keys(), ...landedSystemTitles.keys(),
+        ...synthesizedPreviewSessions, ...pendingFirstSendAt.keys(),
+      ])) {
+        const deviceId = sessionDeviceIndex.get(sessionId);
+        if (deviceId && matchesDevice(deviceId)) dropSessionOverlays(sessionId);
+      }
+      for (const deviceId of knownDeviceIds()) {
+        if (matchesDevice(deviceId)) actions.removeDevice(deviceId);
+      }
+      if (initialDiscoveryChanged) subs.forEach((fn) => fn());
+      return;
+    }
     // 所有设备 epoch 无条件**自增**(不 clear-to-0,见 snapshotEpoch 注释的 ABA):清空时在途
     // 首拉立即失效;下一轮 bootstrap 拿到更高 epoch,不会与清空前的 epoch 撞值把陈旧 snapshot 盖回。
     for (const [k, v] of snapshotEpoch) snapshotEpoch.set(k, v + 1);
@@ -1377,6 +1434,17 @@ function subscribeRename(fn: (deviceId: string, name: string) => void): () => vo
   };
 }
 
+/**
+ * 订阅「远端会话已消失」(被控端删除任务 / 设备移除)。与 `subscribe` 不同,它只报消失的
+ * sessionId,不覆盖其它变更 —— 旁路状态拿不到本机 sessions 的 patch 广播,只能靠这条。
+ */
+export function subscribeRemoteSessionRemoval(fn: (sessionId: string) => void): () => void {
+  removedSubs.add(fn);
+  return () => {
+    removedSubs.delete(fn);
+  };
+}
+
 /** listing tier 挂载时注册「重拉某设备」的实现;卸载时传 null 清。 */
 export function setRemoteReseedImpl(
   fn: ((deviceId: string, status: RemoteSessionStatus) => void) | null,
@@ -1472,7 +1540,12 @@ export function useRemoteBootstrapLoadingDeviceIds(): ReadonlySet<string> {
 }
 
 /** 非组件上下文(presence 订阅器 / 传输层)读写入口。 */
-export const remoteProjectsStore = { ...actions, subscribe, subscribeRename };
+export const remoteProjectsStore = {
+  ...actions,
+  subscribe,
+  subscribeRename,
+  subscribeRemoved: subscribeRemoteSessionRemoval,
+};
 
 /** 便捷导出:传输层只关心 origin 判定。 */
 export function getSessionDeviceId(sessionId: string): string | undefined {

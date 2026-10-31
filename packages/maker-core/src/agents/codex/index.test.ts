@@ -1959,7 +1959,6 @@ function installFakeHost(
     isCodexProxyActive,
     isCodexBrowserUseAvailable,
     getCodexBrowserUseVersion,
-    getNativeRuntimeVersion: () => opts.userAgent?.match(/\/(\d+\.\d+\.\d+)(?:\s|$)/)?.[1] ?? null,
     waitForMcpTool,
     getRemoteCompactionProviderId,
     getCindyRemoteCompactionProviderId,
@@ -2003,77 +2002,6 @@ async function nextEvent(iterator: AsyncIterator<AgentEvent>): Promise<AgentEven
   return result.value;
 }
 
-describe('Codex native compaction action bridge', () => {
-  // Desktop PreCompact block ends the native turn as interrupted, without a
-  // boundary. Unit regression: report noop, retain real failures, release the lane.
-  it.each([
-    { status: 'interrupted', error: false, noop: true },
-    { status: 'interrupted', error: true, noop: false },
-    { status: 'failed', error: false, noop: false },
-  ])('maps native terminal $status with error=$error to noop=$noop', async ({ status, error, noop }) => {
-    const agent = new CodexAgent(createDeps());
-    const host = installFakeHost(agent, method => {
-      if (method === Method.ConfigRead) return { config: { features: { hooks: false } }, layers: [] };
-      if (method === 'thread/compact/start') return {};
-    }, { userAgent: 'test-codex/0.159.2' });
-    const handle = await agent.startSession({ sessionId: 'harness-cancel', workingDir: '/repo', model: 'gpt-5.4' });
-    try {
-      const handlers = host.getThreadHandlers()!;
-      const compact = handle.requestHarnessCompaction!();
-      const outcome = noop
-        ? expect(compact).resolves.toEqual({ noop: true })
-        : expect(compact).rejects.toThrow('Codex compaction failed');
-      handlers.turnStarted?.({ threadId: 'start-thread-id', turn: { id: 'cancelled-compact' } });
-      if (error) handlers.error?.({ turnId: 'cancelled-compact', error: { message: 'native failure' }, willRetry: false });
-      handlers.turnCompleted?.({ threadId: 'start-thread-id', turn: { id: 'cancelled-compact', status, items: [] } });
-      await outcome;
-      const next = handle.requestHarnessCompaction!();
-      handlers.turnStarted?.({ threadId: 'start-thread-id', turn: { id: 'next-compact' } });
-      handlers.turnCompleted?.({ threadId: 'start-thread-id', turn: { id: 'next-compact', status: 'completed', items: [] } });
-      await expect(next).resolves.toEqual({ noop: true });
-    } finally {
-      await handle.close();
-      await agent.dispose();
-    }
-  });
-
-  it('waits for the native terminal and keeps control completion outside the product turn', async () => {
-    const agent = new CodexAgent(createDeps());
-    const host = installFakeHost(agent, method => {
-      if (method === Method.ConfigRead) return { config: { features: { hooks: false } }, layers: [] };
-      if (method === 'thread/compact/start') return {};
-    }, { userAgent: 'test-codex/0.159.2' });
-    const handle = await agent.startSession({ sessionId: 'harness-compact', workingDir: '/repo', model: 'gpt-5.4' });
-    const events: AgentEvent[] = [];
-    const collect = (async () => { for await (const event of handle.events()) events.push(event); })();
-    try {
-      const compact = handle.requestHarnessCompaction!();
-      await vi.waitFor(() => expect(host.request).toHaveBeenCalledWith('thread/compact/start', { threadId: 'start-thread-id' }));
-      let completed = false;
-      void compact.then(() => { completed = true; });
-      await Promise.resolve();
-      expect(completed).toBe(false);
-      await expect(handle.requestHarnessCompaction!()).rejects.toThrow('SESSION_RUNNING');
-      const handlers = host.getThreadHandlers()!;
-      handlers.turnCompleted?.({ threadId: 'start-thread-id', turn: { id: 'old-turn', status: 'completed', items: [] } });
-      await Promise.resolve();
-      expect(completed).toBe(false);
-      const turnId = 'native-compact';
-      handlers.turnStarted?.({ threadId: 'start-thread-id', turn: { id: turnId } });
-      handlers.itemCompleted?.({ threadId: 'start-thread-id', turnId,
-        item: { type: 'contextCompaction', id: 'compact-item' } });
-      handlers.turnCompleted?.({ threadId: 'start-thread-id', turn: { id: turnId, status: 'completed', items: [] } });
-      await expect(compact).resolves.toEqual({});
-    } finally {
-      await handle.close();
-      await collect;
-      await agent.dispose();
-    }
-    expect(events.some(event => event.type === 'compact_boundary')).toBe(true);
-    expect(events.some(event => event.type === 'done')).toBe(false);
-  });
-});
-
 describe('CodexAgent permissions', () => {
   it('graceful stop sends only turn/interrupt for the current turn', async () => {
     const agent = new CodexAgent(createDeps());
@@ -2097,6 +2025,51 @@ describe('CodexAgent permissions', () => {
     });
     expect(host.unsubscribeThread).not.toHaveBeenCalled();
     await handle.close();
+  });
+
+  // L09: public stop handles must notify the Main hook only after interrupt ACK.
+  // Unit tier; a deferred ACK distinguishes capture, success, rejection and late confirmation.
+  it.each(['graceful', 'abort'] as const)('%s stop cancels captured App calls only after ACK', async mode => {
+    const ack = deferred<Record<string, never>>();
+    const cancel = vi.fn();
+    const prepareCodexMcpToolCancellation = vi.fn(() => cancel);
+    const agent = new CodexAgent(createDeps({}, { prepareCodexMcpToolCancellation }));
+    const host = installFakeHost(agent, method => {
+      if (method === Method.TurnStart) return { turn: { id: 'stop-turn' } };
+      if (method === Method.TurnInterrupt) return ack.promise;
+      return undefined;
+    });
+    const handle = await agent.startSession({ sessionId: 'stop-task', sessionInstanceId: 'stop-instance',
+      model: 'gpt-5.5', workingDir: '/repo', permissionMode: 'auto' });
+    try {
+      await handle.send({ type: 'user', content: 'long turn' });
+      const stop = mode === 'graceful' ? handle.requestGracefulStop!() : handle.abort();
+      expect(prepareCodexMcpToolCancellation).toHaveBeenCalledWith({
+        sessionId: 'stop-task', sessionInstanceId: 'stop-instance', threadId: 'start-thread-id',
+      });
+      expect(cancel).not.toHaveBeenCalled();
+      expect(host.request).toHaveBeenCalledWith(Method.TurnInterrupt, { threadId: 'start-thread-id', turnId: 'stop-turn' });
+      ack.resolve({});
+      await stop;
+      expect(cancel).toHaveBeenCalledTimes(1);
+    } finally { await handle.close(); }
+  });
+
+  it('rejected interrupt never cancels captured App calls', async () => {
+    const cancel = vi.fn();
+    const agent = new CodexAgent(createDeps({}, { prepareCodexMcpToolCancellation: () => cancel }));
+    installFakeHost(agent, method => {
+      if (method === Method.TurnStart) return { turn: { id: 'stop-turn' } };
+      if (method === Method.TurnInterrupt) return Promise.reject(new Error('interrupt rejected'));
+      return undefined;
+    });
+    const handle = await agent.startSession({ sessionId: 'stop-task', sessionInstanceId: 'stop-instance',
+      model: 'gpt-5.5', workingDir: '/repo', permissionMode: 'auto' });
+    try {
+      await handle.send({ type: 'user', content: 'long turn' });
+      await expect(handle.requestGracefulStop!()).rejects.toThrow('interrupt rejected');
+      expect(cancel).not.toHaveBeenCalled();
+    } finally { await handle.close(); }
   });
 
   it('advertises distinct Ask, Auto, and Full access modes', () => {
@@ -6048,6 +6021,24 @@ describe('CodexAgent.startSession developerInstructions', () => {
     expect(host.request.mock.calls.find(([method]) => method === Method.ThreadStart)?.[1])
       .toMatchObject({ model: 'gpt-6-astra', modelProvider: 'cindy_openai' });
     await handle.close();
+  });
+
+  // Only the native saved-provider refusal permits branching history. Similar
+  // wording, authentication failures and a wrong process route stay errors.
+  it.each([
+    { code: -32600, data: undefined },
+    { code: -32600, data: { type: 'modelProviderMismatch', modelProvider: 'cindy_openai', currentModelProvider: 'cindy_gateway' } },
+    { code: -32600, data: { type: 'modelProviderMismatch', modelProvider: 'cindy_openai', currentModelProvider: 'cindy_openai' } },
+    { code: -32000, data: { type: 'modelProviderMismatch', modelProvider: 'cindy_gateway', currentModelProvider: 'cindy_openai' } },
+  ])('does not fork history for a non-matching native refusal ($code, $data)', async (error) => {
+    const agent = new CodexAgent(createDeps());
+    const host = installFakeHost(agent, (method) => {
+      if (method === Method.ThreadResume) throw Object.assign(new Error('This chat uses another provider'), error);
+      return undefined;
+    }, { codexProxyActive: true, remoteCompactionProviderId: 'cindy_openai' });
+    await expect(agent.startSession({ sessionId: 'resume-provider-refusal', model: 'gpt-6.1-sol', providerId: 'openai',
+      workingDir: '/repo', resumeSessionId: '11111111-1111-1111-1111-111111111111' })).rejects.toThrow();
+    expect(host.request.mock.calls.filter(([method]) => method === Method.ThreadFork)).toHaveLength(0);
   });
 
   it('selects one generic custom Provider identity for every eligible Responses model', async () => {
@@ -11398,6 +11389,18 @@ describe('CodexAgent MCP thread context hooks', () => {
       });
       await handle.close();
     });
+    it('does not replace the provider process while native child work is running', async () => {
+      const { host, handle, events } = await start();
+      host.getThreadHandlers()!.itemStarted!({ threadId: nativeId, turnId: 'turn-1', item: {
+        type: 'collabAgentToolCall', id: 'spawn-running-child', tool: 'spawnAgent', status: 'inProgress',
+        senderThreadId: nativeId, receiverThreadIds: ['running-child'], prompt: 'Continue work', agentsStates: {},
+      } });
+      compact(host);
+      fail(host);
+      await waitForExpectation(() => expect(events.some(e => e.type === 'error' && e.data.isTerminal)).toBe(true));
+      expect(host.request.mock.calls.filter(([m]) => m === Method.ThreadFork)).toHaveLength(0);
+      await handle.close();
+    });
     it.each(['usageLimitExceeded', 'sessionBudgetExceeded'] as const)('does not switch for exhausted %s', async (codexErrorInfo) => {
       const { host, handle } = await start();
       compact(host);
@@ -11709,7 +11712,7 @@ describe('CodexAgent MCP thread context hooks', () => {
             (event) =>
               event.type === 'error' &&
               (event.data as { isTerminal?: boolean; reason?: string }).isTerminal === true &&
-              (event.data as { reason?: string }).reason === 'context-overflow',
+              (event.data as { reason?: string }).reason === 'remote-compact-encrypted-content',
           ),
         ).toBe(true);
       });
@@ -20193,6 +20196,58 @@ describe('CodexAgent MCP thread context hooks', () => {
       await waitForExpectation(() => expect(askUserTurnStartCalls(fixtures[0].host)).toHaveLength(1));
     } finally {
       await Promise.all(fixtures.map(({ handle }) => handle.close()));
+    }
+  });
+
+  // Regression: 2026-10-29 Telegram reply finished but its cancelled question
+  // retained the product boundary. Existing cancellation coverage only checked
+  // the RPC/UI response, not completion while the UI resolver was still pending.
+  // Unit: real adapter handlers, cancellation followed immediately by completion.
+  it.each(['native', 'dynamic'] as const)('finishes after a server-cancelled %s question without waiting for the UI', async (kind) => {
+    const agent = new CodexAgent(createDeps());
+    let turnSeq = 0;
+    const host = installFakeHost(agent, (method) => method === Method.TurnStart
+      ? { turn: { id: `turn-${++turnSeq}` } } : undefined);
+    const handle = await agent.startSession({
+      sessionId: `cancelled-question-${kind}`, model: 'gpt-5.4', workingDir: '/repo',
+    });
+    const decision = deferred<InteractionDecision>();
+    handle.setInteractionResolver(async () => decision.promise);
+    const events = await collectAgentEvents(handle);
+    await handle.send({ type: 'user', content: 'Estimate the project' });
+    const handlers = host.getThreadHandlers()!;
+    const base = { threadId: 'start-thread-id', turnId: 'turn-1' };
+    const response = kind === 'native'
+      ? handlers.requestUserInput!({ ...base, itemId: 'question',
+          questions: [{ id: 'q', header: 'Scope', question: 'Choose?' }] }, { requestId: 0 })
+      : handlers.dynamicToolCall!({ ...base, callId: 'question', namespace: 'cindy', tool: 'ask_user_question',
+          arguments: { questions: [{ id: 'q', question: 'Choose?' }] } }, { requestId: 0 });
+    try {
+      handlers.serverRequestResolved!({ threadId: base.threadId, requestId: 0 });
+      handlers.serverRequestResolved!({ threadId: base.threadId, requestId: 0 });
+      handlers.itemCompleted!({ ...base, item: {
+        type: 'agentMessage', id: 'final', phase: 'final_answer', text: 'The estimate is ready.',
+      } });
+      handlers.turnCompleted!({ threadId: base.threadId, turn: { id: base.turnId, status: 'completed' } });
+      await response;
+      await waitForExpectation(() => expect(events.some((event) => event.type === 'done')).toBe(true));
+      expect(handle.isTurnRunning?.()).toBe(false);
+      const done = events.filter((event) => event.type === 'done');
+      expect(done).toHaveLength(1);
+      expect(done[0]?.turnContinuationId).toBeUndefined();
+      expect(events.filter((event) => event.type === 'interaction_dismissed')).toHaveLength(1);
+      expect(events.some((event) => event.type === 'text'
+        && JSON.stringify(event.data).includes('The estimate is ready.'))).toBe(true);
+
+      // A delayed UI answer cannot revive the cancelled question or send a new turn.
+      decision.resolve({ kind: 'ask_user_question', answers: { 'Choose?': 'Late answer' } });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(askUserTurnStartCalls(host)).toHaveLength(1);
+      expect(events.filter((event) => event.type === 'done')).toHaveLength(1);
+      await handle.send({ type: 'user', content: 'New work' });
+      expect(askUserTurnStartCalls(host)).toHaveLength(2);
+    } finally {
+      await handle.close();
     }
   });
 

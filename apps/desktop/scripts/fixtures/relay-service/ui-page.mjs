@@ -19,7 +19,7 @@ export default {
     'join-link': { about: 'A join link is ready: Enlarge opens a large, sharply rendered QR code that closes with its own button' },
     // The 800px minimum window minus the settings sidebar leaves about 230px beside the QR.
     'join-link-narrow': { about: 'Narrow settings column: the link actions wrap and Enlarge stays fully visible', viewport: { width: 480, height: 720 } },
-    'join-link-zoomed': { about: 'Zooming to 200% on the minimum window with the enlarged QR open: the QR shrinks to fit and Close QR Code stays on screen' },
+    'join-link-zoomed': { about: 'Zooming the minimum window to 200% and 300% with the enlarged QR open: the QR keeps a scannable size and Close QR Code stays reachable' },
   },
   async check(page, ui) {
     const route = 'settings.remoteControl.relay.route';
@@ -186,14 +186,22 @@ export default {
       const dialog = page.getByRole('dialog', { name: await ui.t(`${add}.qrTitle`), exact: true });
       await dialog.waitFor();
       if (ui.case === 'join-link-zoomed') {
-        // 800x600 minimum window at 200% interface zoom leaves a 400x300 CSS viewport.
-        await page.setViewportSize({ width: 400, height: 300 });
-        const close = await dialog.getByRole('button', { name: await ui.t(`${add}.close`), exact: true }).boundingBox();
-        const viewport = page.viewportSize();
-        assert.ok(close.y >= 0 && close.y + close.height <= viewport.height, `Close QR Code is off screen: ${close.y}..${close.y + close.height} in ${viewport.height}px`);
-        const qrBox = await dialog.getByRole('img', { name: await ui.t(`${add}.qrAlt`), exact: true }).boundingBox();
-        assert.ok(qrBox.y >= 0 && qrBox.y + qrBox.height <= close.y, `QR does not fit above the footer: ${qrBox.y}..${qrBox.y + qrBox.height}, Close at ${close.y}`);
-        await ui.capture('qr-zoomed');
+        const qr = dialog.getByRole('img', { name: await ui.t(`${add}.qrAlt`), exact: true });
+        const close = dialog.getByRole('button', { name: await ui.t(`${add}.close`), exact: true });
+        // The 800x600 minimum window at 200% and at the 300% maximum interface zoom. When the dialog can't fit,
+        // it scrolls: the QR keeps a scannable size and Close QR Code stays reachable.
+        for (const [zoom, viewport] of [['2x', { width: 400, height: 300 }], ['3x', { width: 267, height: 200 }]]) {
+          await page.setViewportSize(viewport);
+          await qr.scrollIntoViewIfNeeded();
+          const qrBox = await qr.boundingBox();
+          assert.ok(qrBox.y >= 0 && qrBox.y + qrBox.height <= viewport.height && qrBox.height >= 96, `QR is not usable at ${zoom}: ${qrBox.height}px tall at ${qrBox.y}`);
+          await ui.capture(`qr-zoomed-${zoom}`);
+          await close.scrollIntoViewIfNeeded();
+          const closeBox = await close.boundingBox();
+          assert.ok(closeBox.y >= 0 && closeBox.y + closeBox.height <= viewport.height, `Close QR Code is not reachable at ${zoom}: ${closeBox.y}..${closeBox.y + closeBox.height}`);
+        }
+        await close.click();
+        await dialog.waitFor({ state: 'detached' });
         return;
       }
       // 放大版按大尺寸重新生成,不是把 200px 的小图拉伸。

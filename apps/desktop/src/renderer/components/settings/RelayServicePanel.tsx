@@ -184,7 +184,7 @@ function FormDialog({
             event.preventDefault();
             if (openerRef.current?.isConnected) openerRef.current.focus({ preventScroll: true });
           }}
-          className="modal-panel fixed left-1/2 top-1/2 z-[10001] flex max-h-[88vh] w-[min(480px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 flex-col outline-none"
+          className="modal-panel fixed left-1/2 top-1/2 z-[10001] flex max-h-[88vh] w-[min(480px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-y-auto outline-none"
         >
           <div className="flex flex-col gap-1 px-4 pb-4 pt-4">
             <Dialog.Title className="text-16 font-semibold text-[var(--confirm-title)]">{title}</Dialog.Title>
@@ -382,8 +382,8 @@ function AddDevice({
             title={t(`${k}.qrTitle`)}
             description={t(`${k}.hint`)}
           >
-            {/* 窗口很矮（最小窗口加界面缩放）时 QR 跟着缩小，底部关闭按钮始终可见。 */}
-            <div className="flex min-h-0 flex-1 justify-center overflow-y-auto px-4 pb-4">
+            {/* 窗口很矮（最小窗口加界面缩放）时 QR 跟着缩小；再矮就保底 120px，整个窗口滚动，关闭按钮仍可达。 */}
+            <div className="flex min-h-[120px] flex-1 justify-center px-4 pb-4">
               {enlarged ? (
                 <img src={enlarged} alt={t(`${k}.qrAlt`)} className="aspect-square max-h-full w-full max-w-[min(440px,60vh)] rounded-xl object-contain" />
               ) : null}

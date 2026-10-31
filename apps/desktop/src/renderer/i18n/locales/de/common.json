@@ -5823,8 +5823,8 @@
           "copy": "Link kopieren",
           "copied": "Beitrittslink kopiert",
           "newLink": "Neuer Link",
-          "enlarge": "Vergrößern",
-          "close": "Schließen",
+          "enlarge": "QR-Code vergrößern",
+          "close": "QR-Code schließen",
           "waiting": "Warten auf eine Geräteanfrage…"
         },
         "requests": {

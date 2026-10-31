@@ -5781,8 +5781,8 @@
           "copy": "复制链接",
           "copied": "已复制加入链接",
           "newLink": "重新生成",
-          "enlarge": "放大",
-          "close": "关闭",
+          "enlarge": "放大二维码",
+          "close": "关闭二维码",
           "waiting": "等待设备申请…"
         },
         "requests": {

@@ -5824,8 +5824,8 @@
           "copy": "Copy link",
           "copied": "Join link copied",
           "newLink": "New link",
-          "enlarge": "Enlarge",
-          "close": "Close",
+          "enlarge": "Enlarge QR Code",
+          "close": "Close QR Code",
           "waiting": "Waiting for a device to ask…"
         },
         "requests": {

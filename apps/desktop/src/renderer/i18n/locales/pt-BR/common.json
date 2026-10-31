@@ -5878,8 +5878,8 @@
           "copy": "Copiar link",
           "copied": "Link de conexão copiado",
           "newLink": "Novo link",
-          "enlarge": "Ampliar",
-          "close": "Fechar",
+          "enlarge": "Ampliar código QR",
+          "close": "Fechar código QR",
           "waiting": "Aguardando solicitação de um dispositivo…"
         },
         "requests": {

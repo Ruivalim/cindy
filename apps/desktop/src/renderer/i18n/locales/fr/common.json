@@ -5878,8 +5878,8 @@
           "copy": "Copier le lien",
           "copied": "Lien d'invitation copié",
           "newLink": "Nouveau lien",
-          "enlarge": "Agrandir",
-          "close": "Fermer",
+          "enlarge": "Agrandir le QR code",
+          "close": "Fermer le QR code",
           "waiting": "En attente d'une demande d'un appareil…"
         },
         "requests": {

@@ -5780,6 +5780,8 @@
           "copy": "录链接",
           "copied": "加入链接已录",
           "newLink": "重生",
+          "enlarge": "放大 QR 码",
+          "close": "阖 QR 码",
           "waiting": "倚门候设备来请…"
         },
         "requests": {

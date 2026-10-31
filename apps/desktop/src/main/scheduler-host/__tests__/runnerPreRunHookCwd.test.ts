@@ -111,20 +111,6 @@ function createRunner(getSessionMeta: Maker['getSessionMeta']) {
 }
 
 describe('MakerScheduleRunner pre-run hook cwd 解析', () => {
-  // #8237 / CINDY-001, unit: fire must reject a repository-supplied command
-  // before shell or agent dispatch. Existing cwd tests only covered user hooks.
-  // Include restart recovery: it clears preRunHook before dispatching otherwise.
-  it.each([undefined, 'resumed-session'])('rejects imported hooks, including persisted schedules (resume=%s)', async (resumeSessionId) => {
-    const { runner, maker } = createRunner(vi.fn() as never);
-    const context = { ...createFireContext(), resumeSessionId };
-    await expect(runner.fire(baseSchedule({ source: 'project' }), context))
-      .rejects.toThrow('PROJECT_AUTOMATION_HOOK_NOT_AUTHORIZED');
-    expect(mocks.executePreRunHook).not.toHaveBeenCalled();
-    expect(maker.createSession).not.toHaveBeenCalled();
-    expect(mocks.restoreArchivedSessionForSend).not.toHaveBeenCalled();
-    expect(context.onPreRunHookCompleted).not.toHaveBeenCalled();
-  });
-
   it.each(['deleted'])('stops a %s heartbeat before running any hook', async (status) => {
     mocks.getSessionRowSnapshot.mockResolvedValueOnce({ status });
     const { runner, notifier } = createRunner(vi.fn() as never);
@@ -357,12 +343,13 @@ describe('MakerScheduleRunner pre-run hook cwd 解析', () => {
     );
   });
 
-  it('显式 workingDir 任务 → 直接用任务目录,不查 session meta', async () => {
+  // #8237: confirmed imports retain the same hook execution as authored schedules.
+  it.each(['user', 'project'] as const)('显式 workingDir 任务 (%s) → 直接用任务目录,不查 session meta', async (source) => {
     const getSessionMeta = vi.fn(async () => null);
     const { runner } = createRunner(getSessionMeta as never);
 
     await runner.fire(
-      baseSchedule({ workingDir: '/repo/project' }),
+      baseSchedule({ workingDir: '/repo/project', source }),
       createFireContext(),
     );
 

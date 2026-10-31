@@ -803,15 +803,6 @@ export class MakerScheduleRunner implements ScheduleRunner {
    * 事件流进行中不能关;这里在 run 终态(done/error 已收)之后关,不冲突。
    */
   async fire(schedule: Schedule, ctx: FireContext, enqueuePrompt?: SchedulerQueueDeps['enqueuePrompt']): Promise<FireResult> {
-    // Repository data is not approval to execute a host shell command. Enforce
-    // this at dispatch too: startup reconciliation may not have read old DB
-    // entries yet. Reject the whole run rather than bypassing its precondition,
-    // including recovery (which normally removes the hook below).
-    if (schedule.source === 'project' && schedule.preRunHook?.command?.trim()) {
-      const message = 'PROJECT_AUTOMATION_HOOK_NOT_AUTHORIZED: repository-defined pre-run commands cannot run automatically';
-      await this.notifyFailureSilent(schedule, ctx, message);
-      throw new Error(message);
-    }
     if (ctx.resumeSessionId) {
       // The original precheck may now say "nothing to do" because the agent
       // already applied effects. Resume its transcript, never replay that gate

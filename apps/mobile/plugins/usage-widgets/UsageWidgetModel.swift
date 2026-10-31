@@ -122,29 +122,41 @@ enum WidgetState: Decodable {
 
   /// The edit sheet's arrangement: pinned accounts first in their order, hidden ones left out,
   /// the rest (accounts added later included) after them in the computer's order. Nil when it
-  /// changes nothing; hiding every account shows them all, as the Mac panel does.
+  /// changes nothing. Hiding every account shows them all, still in the pinned order, as the Mac
+  /// panel does.
   func arranged(pinned: [String]?, hidden: [String]?) -> (state: WidgetState, pinnedCount: Int)? {
     guard case .snapshot(let receivedAtMs, let deviceName, var snapshot) = self else { return nil }
-    let hiddenIDs = Set(Self.matching(hidden ?? [], in: snapshot.sources).map(\.id))
-    let first = Self.matching(pinned ?? [], in: snapshot.sources).filter { !hiddenIDs.contains($0.id) }
-    let firstIDs = Set(first.map(\.id))
-    let shown = first + snapshot.sources.filter { !hiddenIDs.contains($0.id) && !firstIDs.contains($0.id) }
-    if (first.isEmpty && hiddenIDs.isEmpty) || shown.isEmpty { return nil }
+    let sources = snapshot.sources
+    var hiddenIDs = Set(Self.matching(hidden ?? [], in: sources).map(\.id))
+    var first = Self.matching(pinned ?? [], in: sources).filter { !hiddenIDs.contains($0.id) }
+    func ordered() -> [WidgetSource] {
+      let firstIDs = Set(first.map(\.id))
+      return first + sources.filter { !hiddenIDs.contains($0.id) && !firstIDs.contains($0.id) }
+    }
+    var shown = ordered()
+    if shown.isEmpty {
+      // Never an empty widget: show everything, keeping the pinned order.
+      hiddenIDs = []
+      first = Self.matching(pinned ?? [], in: sources)
+      shown = ordered()
+    }
+    if first.isEmpty && hiddenIDs.isEmpty { return nil }
     snapshot.sources = shown
     return (.snapshot(receivedAtMs: receivedAtMs, deviceName: deviceName, snapshot: snapshot), first.count)
   }
 
   /// The sources the keys name, in key order and each once (the edit sheet lets one account fill
-  /// two places). Each computer names its own connections, so the same subscription can have
-  /// another id there; a key falls back to the same logo and name.
+  /// two places). A connection's id only means something on its own computer (every computer's
+  /// built-in OpenAI connection can be a different login), so an account is the same one on
+  /// another computer when its logo and name match; the id only confirms it. Every key is looked
+  /// up among all sources and duplicates dropped afterwards, so a repeated choice never falls
+  /// through to a different account that happens to share its logo and name.
   private static func matching(_ keys: [String], in sources: [WidgetSource]) -> [WidgetSource] {
     var found: [WidgetSource] = []
     for key in keys.map(AccountKey.init(encoded:)) {
-      let open = sources.filter { source in !found.contains { $0.id == source.id } }
-      if let source = open.first(where: { $0.id == key.id })
-        ?? open.first(where: { $0.logo == key.logo && $0.name == key.name }) {
-        found.append(source)
-      }
+      let source = sources.first(where: { $0.id == key.id && $0.logo == key.logo && $0.name == key.name })
+        ?? sources.first(where: { $0.logo == key.logo && $0.name == key.name })
+      if let source, !found.contains(where: { $0.id == source.id }) { found.append(source) }
     }
     return found
   }

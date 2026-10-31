@@ -2391,7 +2391,30 @@
         "fr": "Français",
         "de": "Deutsch",
         "pt-PT": "Português (Portugal)",
-        "pt-BR": "Português (Brasil)"
+        "pt-BR": "Português (Brasil)",
+        "classical": "文言"
+      },
+      "classical": {
+        "label": "簡繁與文風",
+        "hint": "AI 依所選文風作答；選「照常作答」時介面仍為文言，回答隨你的語言",
+        "scriptAriaLabel": "文言簡繁",
+        "styleAriaLabel": "AI 作答文風",
+        "script": {
+          "hans": "简体",
+          "hant": "繁體"
+        },
+        "styles": {
+          "prose": "文言（預設）",
+          "tang-poetry": "唐詩",
+          "song-ci": "宋詞",
+          "yuan-qu": "元曲",
+          "chu-ci": "楚辭",
+          "parallel-prose": "駢文",
+          "pre-qin": "先秦諸子",
+          "historian": "史傳",
+          "ming-qing-essay": "明清小品",
+          "plain": "照常作答"
+        }
       }
     },
     "userProfile": {
@@ -10681,6 +10704,9 @@
         "hostNotReady": "Cindy 還在準備中，請稍後重試",
         "planOpen": "正在分工，做完或停止後才能安排新的",
         "planClosed": "這個安排已經結束或更新了",
+        "revisionConflict": "工作狀態已變更，未能完成操作",
+        "stopOwnershipUnknown": "部分工作未能停止：無法確認由誰發起",
+        "nothingToStop": "目前沒有可停止的工作",
         "invalidAttachment": "附件無法讀取，請重新選擇後傳送。",
         "attachmentUnavailable": "未能從手機取回附件，請檢查裝置連線後重試。",
         "attachmentTooLarge": "附件超過 100 MB，請選擇較小的檔案。",

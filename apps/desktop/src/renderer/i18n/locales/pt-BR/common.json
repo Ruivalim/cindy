@@ -2455,7 +2455,30 @@
         "fr": "Français",
         "de": "Deutsch",
         "pt-PT": "Português (Portugal)",
-        "pt-BR": "Português (Brasil)"
+        "pt-BR": "Português (Brasil)",
+        "classical": "文言"
+      },
+      "classical": {
+        "label": "Escrita e estilo",
+        "hint": "A IA responde no estilo escolhido. Com “Respostas habituais”, a interface continua em chinês clássico e as respostas seguem seu idioma.",
+        "scriptAriaLabel": "Escrita do chinês clássico",
+        "styleAriaLabel": "Estilo de resposta da IA",
+        "script": {
+          "hans": "简体",
+          "hant": "繁體"
+        },
+        "styles": {
+          "prose": "Prosa clássica (padrão)",
+          "tang-poetry": "Poesia Tang",
+          "song-ci": "Ci dos Song",
+          "yuan-qu": "Qu dos Yuan",
+          "chu-ci": "Chuci",
+          "parallel-prose": "Prosa paralela",
+          "pre-qin": "Mestres pré-Qin",
+          "historian": "Estilo do Grande Historiador",
+          "ming-qing-essay": "Ensaios Ming–Qing",
+          "plain": "Respostas habituais"
+        }
       }
     },
     "userProfile": {
@@ -10819,6 +10842,9 @@
         "chatUnavailable": "O serviço de conversa está indisponível. Verifique sua conexão e tente novamente.",
         "importPending": "O histórico do grupo ainda está sendo sincronizado. Tente novamente mais tarde.",
         "requestTimeout": "O resultado ainda não foi confirmado. Atualize para verificar antes de tentar novamente.",
+        "revisionConflict": "O trabalho foi alterado antes que esta ação pudesse ser concluída.",
+        "stopOwnershipUnknown": "Não foi possível parar parte do trabalho porque não foi possível verificar quem o solicitou.",
+        "nothingToStop": "Não há trabalho em andamento para parar.",
         "permissionDenied": "Você não tem permissão para gerenciar este grupo.",
         "serviceError": "O serviço de conversa não conseguiu concluir a solicitação. Tente novamente mais tarde.",
         "groupArchived": "Este grupo está arquivado. Esta ação está indisponível.",

@@ -2391,7 +2391,30 @@
         "fr": "Français",
         "de": "Deutsch",
         "pt-PT": "Português (Portugal)",
-        "pt-BR": "Português (Brasil)"
+        "pt-BR": "Português (Brasil)",
+        "classical": "文言"
+      },
+      "classical": {
+        "label": "字体と文体",
+        "hint": "AI は選んだ文体で回答します。「通常の回答」では画面は文言のまま、回答はあなたの言語に合わせます。",
+        "scriptAriaLabel": "文言の字体",
+        "styleAriaLabel": "AI の回答文体",
+        "script": {
+          "hans": "简体",
+          "hant": "繁體"
+        },
+        "styles": {
+          "prose": "文言文（既定）",
+          "tang-poetry": "唐詩",
+          "song-ci": "宋詞",
+          "yuan-qu": "元曲",
+          "chu-ci": "楚辞",
+          "parallel-prose": "駢文",
+          "pre-qin": "先秦諸子",
+          "historian": "史伝",
+          "ming-qing-essay": "明清小品",
+          "plain": "通常の回答"
+        }
       }
     },
     "userProfile": {
@@ -10681,6 +10704,9 @@
         "hostNotReady": "Cindy の準備がまだ終わっていません。しばらくしてから再試行してください",
         "planOpen": "役割分担の途中です。終わるか停止してから新しく始めてください",
         "planClosed": "この計画はすでに終了したか、更新されています",
+        "revisionConflict": "作業の状態が変わったため、操作を完了できませんでした",
+        "stopOwnershipUnknown": "一部の作業を停止できませんでした。依頼者を確認できません。",
+        "nothingToStop": "停止できる進行中の作業はありません。",
         "invalidAttachment": "添付ファイルを読み込めません。選び直して送信してください。",
         "attachmentUnavailable": "スマートフォンから添付ファイルを取得できません。接続を確認して再試行してください。",
         "attachmentTooLarge": "添付ファイルが 100 MB を超えています。小さいファイルを選んでください。",

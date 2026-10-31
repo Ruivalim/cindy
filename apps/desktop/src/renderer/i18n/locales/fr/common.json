@@ -2455,7 +2455,30 @@
         "fr": "Français",
         "de": "Deutsch",
         "pt-PT": "Português (Portugal)",
-        "pt-BR": "Português (Brasil)"
+        "pt-BR": "Português (Brasil)",
+        "classical": "文言"
+      },
+      "classical": {
+        "label": "Écriture et style",
+        "hint": "L’IA répond dans le style choisi. Avec « Réponses habituelles », l’interface reste en chinois classique et les réponses suivent votre langue.",
+        "scriptAriaLabel": "Écriture du chinois classique",
+        "styleAriaLabel": "Style de réponse de l’IA",
+        "script": {
+          "hans": "简体",
+          "hant": "繁體"
+        },
+        "styles": {
+          "prose": "Prose classique (par défaut)",
+          "tang-poetry": "Poésie Tang",
+          "song-ci": "Ci des Song",
+          "yuan-qu": "Qu des Yuan",
+          "chu-ci": "Chuci",
+          "parallel-prose": "Prose parallèle",
+          "pre-qin": "Maîtres pré-Qin",
+          "historian": "Style du Grand Historien",
+          "ming-qing-essay": "Essais Ming–Qing",
+          "plain": "Réponses habituelles"
+        }
       }
     },
     "userProfile": {
@@ -10819,6 +10842,9 @@
         "chatUnavailable": "Le service de conversation est indisponible. Vérifiez votre connexion et réessayez.",
         "importPending": "L'historique du groupe est encore en cours de synchronisation. Réessayez plus tard.",
         "requestTimeout": "Le résultat n'est pas encore confirmé. Actualisez pour vérifier avant de réessayer.",
+        "revisionConflict": "Le travail a changé avant que cette action puisse être effectuée.",
+        "stopOwnershipUnknown": "Impossible d’arrêter une partie du travail, car son demandeur n’a pas pu être vérifié.",
+        "nothingToStop": "Il n’y a aucun travail en cours à arrêter.",
         "permissionDenied": "Vous n'avez pas l'autorisation de gérer ce groupe.",
         "serviceError": "Le service de conversation n'a pas pu traiter la requête. Réessayez plus tard.",
         "groupArchived": "Ce groupe est archivé. Cette action n'est pas disponible.",

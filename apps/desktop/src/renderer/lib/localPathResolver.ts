@@ -616,7 +616,8 @@ export function revalidateNegativeLocalPathSmart(
     const inflight = smartRevalidateInflight.get(key) ?? smartResolveInflight.get(key);
     if (inflight) {
       const sentAt = smartLookupSentAt.get(key);
-      if (sentAt === undefined || sentAt >= boundaryAt) return inflight;
+      // Same millisecond: the order is unknown, so treat it as sent before the boundary.
+      if (sentAt === undefined || sentAt > boundaryAt) return inflight;
       return inflight.then((result) =>
         result.status === 'unique' ? result : (queueNegativeRevalidation(key, href, workingDir) ?? result),
       );

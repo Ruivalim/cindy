@@ -357,6 +357,23 @@ describe('MarkdownRenderer workspace-relative media in local sessions', () => {
     },
   );
 
+  // 查找发出与时机到来落在同一毫秒时分不出先后，按「时机之前发出」处理，回来未命中仍要补查。
+  it('checks again when the lookup and window focus share the same millisecond', async () => {
+    const now = Date.now();
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+    let answer!: (batch: Record<string, unknown>) => void;
+    const { view, resolvePathBatch } = mount(richVideo, LOCAL, new Promise((resolve) => { answer = resolve; }));
+    await act(async () => {});
+    expect(resolvePathBatch).toHaveBeenCalledTimes(1);
+
+    act(() => { window.dispatchEvent(new Event('focus')); });
+    resolvePathBatch.mockResolvedValue(unique('renders/out/clip.mp4'));
+    await act(async () => answer(missing));
+
+    await waitFor(() => expect(mediaSrc(view.container)).toBe(toLocalFileUrl('/task/film/renders/out/clip.mp4')));
+    expect(resolvePathBatch).toHaveBeenLastCalledWith({ hrefs: ['renders/out/clip.mp4'], workingDir: '/task', revalidateNegative: true });
+  });
+
   // 文件恰好写到直接拼接的位置：地址不变，但播放器之前已经加载失败，必须换一个新实例重新加载。
   it('reloads the player when a missing file appears at the joined path itself', async () => {
     const { view, resolvePathBatch } = mount(richVideo, LOCAL, missing);

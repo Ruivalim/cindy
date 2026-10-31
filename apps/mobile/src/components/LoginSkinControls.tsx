@@ -105,6 +105,7 @@ function LegalStatementText({
   onOpenTerms,
   onOpenPrivacy,
   testIDPrefix,
+  shrink = false,
 }: {
   statement: string;
   color: string;
@@ -113,10 +114,20 @@ function LegalStatementText({
   onOpenTerms: () => void;
   onOpenPrivacy: () => void;
   testIDPrefix: string;
+  /**
+   * 放在定宽单行(协议行)里时收窄到可用宽度并按需缩小字号,保持单行:RN 默认
+   * flexShrink 0,长译文(pt-BR / de 等)会撑出行宽、居中后两端被裁(radio 只剩半个);
+   * 换行也不行,第二行会被行底 bounds 裁掉。
+   */
+  shrink?: boolean;
 }) {
   const base = { color, fontSize, lineHeight } as const;
   return (
-    <Text style={[base, { textAlign: 'center' }]}>
+    <Text
+      adjustsFontSizeToFit={shrink}
+      numberOfLines={shrink ? 1 : undefined}
+      style={[base, { textAlign: 'center' }, shrink && { flexShrink: 1 }]}
+    >
       {parseLegalSegments(statement).map((segment, index) =>
         segment.kind === 'text' ? (
           // eslint-disable-next-line react/no-array-index-key
@@ -247,6 +258,7 @@ export function LoginConsentRow({
         lineHeight={LOGIN_CONSENT_ROW.lineHeight}
         onOpenPrivacy={onOpenPrivacy}
         onOpenTerms={onOpenTerms}
+        shrink
         statement={statement}
         testIDPrefix="login.consent"
       />
@@ -398,18 +410,21 @@ export function LoginConsentDialog({
             width: D.width,
           }}
         >
+          {/* 与正文同一水平带(中心不变,短标题位置不变);长译文按需缩小字号保持单行,
+              不再贴着面板边缘截成省略号 */}
           <Text
+            adjustsFontSizeToFit
             numberOfLines={1}
             style={{
               color: login.titleText,
               fontSize: D.title.font,
               fontWeight: fontWeight.bold,
-              left: 0,
+              left: D.body.x,
               lineHeight: D.title.height,
               position: 'absolute',
               textAlign: 'center',
               top: D.title.y,
-              width: D.width,
+              width: D.body.width,
             }}
             testID="login.consentDialogTitle"
           >

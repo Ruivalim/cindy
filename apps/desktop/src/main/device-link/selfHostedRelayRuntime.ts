@@ -1047,6 +1047,8 @@ export function registerSelfHostedRelayIpc(): void {
   // 换账号的清理照常立即做,启动等边界结束后补上,否则重开应用后已开启的本机中转要等手动保存才起来。
   let lastKey: string | null = null;
   let startDeferred = false;
+  // 上一个账号的中转要等设备连接关掉才释放端口;推迟的启动先等它关完。
+  let stopping: Promise<void> = Promise.resolve();
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
   let retries = 0;
   const retrySoon = () => {
@@ -1075,7 +1077,10 @@ export function registerSelfHostedRelayIpc(): void {
       }
       startDeferred = false;
       const assertOwner = captureOwner();
-      void ensureHost().then(() => { assertOwner(); emitChanged(); }).catch(reportFailure);
+      void stopping.then(() => {
+        assertOwner();
+        return ensureHost();
+      }).then(() => { assertOwner(); emitChanged(); }).catch(reportFailure);
       return;
     }
     lastKey = key;
@@ -1089,7 +1094,8 @@ export function registerSelfHostedRelayIpc(): void {
     if (startDeferred) retrySoon();
     const deferred = startDeferred;
     const assertOwner = captureOwner();
-    void stopHost(false).then(() => {
+    stopping = stopHost(false);
+    void stopping.then(() => {
       assertOwner();
       return key && !deferred ? ensureHost() : undefined;
     }).then(() => { assertOwner(); emitChanged(); }).catch(reportFailure);

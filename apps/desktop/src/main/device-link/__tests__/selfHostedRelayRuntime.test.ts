@@ -409,9 +409,11 @@ it('starts the enabled local relay once the sign-in session boundary ends', asyn
 });
 
 // 同一修正的另一半：边界期间只推迟启动，换账号时上一个账号的本机中转仍要立即关掉（中转属于开启它的账号）。
-// 最小输入：A 的中转在运行，边界未结束时换到 B，再结束边界。tier: unit。
+// 最小输入：A 的中转在运行且关闭较慢，边界未结束时换到 B，再结束边界。tier: unit。
 it('closes the previous account’s local relay at once when the switch lands inside a session boundary', async () => {
-  const closeA = vi.fn(async () => {});
+  // A 的中转要等设备连接关掉才释放端口：关闭没完成前不能启动 B，否则端口冲突后就不再重试。
+  const closingA = deferred<void>();
+  const closeA = vi.fn(() => closingA.promise);
   h.startServer.mockResolvedValueOnce({ port: 47820, close: closeA }).mockResolvedValueOnce({ port: 47820, close: vi.fn(async () => {}) });
   for (const owner of ['account-a', 'account-b']) h.config.get(owner)!.host = { ...emptyConfig().host, enabled: true, relayId: `${owner}-relay` };
   h.generation += 1;
@@ -428,6 +430,9 @@ it('closes the previous account’s local relay at once when the switch lands in
   expect(h.startServer).toHaveBeenCalledOnce();
   h.boundaryPending = false;
   await vi.advanceTimersByTimeAsync(1_000);
+  expect(h.startServer).toHaveBeenCalledOnce();
+  closingA.resolve();
+  await vi.advanceTimersByTimeAsync(0);
   expect(h.startServer).toHaveBeenCalledTimes(2);
   expect(getState().host.running).toBe(true);
   await command({ type: 'disable-host' });

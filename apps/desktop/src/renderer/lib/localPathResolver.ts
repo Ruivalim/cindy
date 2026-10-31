@@ -575,7 +575,9 @@ export async function resolveLocalPathSmartCached(
   const key = smartResolveCacheKey(workingDir, href);
   const cached = smartResolveCache.get(key);
   if (cached) return cached;
-  const inflight = smartResolveInflight.get(key);
+  // A negative re-check still in flight answers this lookup too: the cache may have
+  // dropped the entry meanwhile, and a second plain lookup would race it.
+  const inflight = smartResolveInflight.get(key) ?? smartRevalidateInflight.get(key);
   if (inflight) return inflight;
 
   const promise = new Promise<SmartResolveResult>((resolve) => {

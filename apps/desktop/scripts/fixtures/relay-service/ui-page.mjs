@@ -17,6 +17,8 @@ export default {
     'deploy-steady': { about: 'Choosing a server, its check, each deployment step and the finished page keep the dialog and form fields in place' },
     multi: { about: 'Two server relays, one in use; renaming the other and deploying again stay available' },
     'join-link': { about: 'A join link is ready: Enlarge opens a large, sharply rendered QR code that closes with its own button' },
+    // The 800px minimum window minus the settings sidebar leaves about 230px beside the QR.
+    'join-link-narrow': { about: 'Narrow settings column: the link actions wrap and Enlarge stays fully visible', viewport: { width: 480, height: 720 } },
   },
   async check(page, ui) {
     const route = 'settings.remoteControl.relay.route';
@@ -168,10 +170,18 @@ export default {
       await ui.capture('join-dialog');
       await dialog.getByRole('button', { name: await ui.t(`${relay}.join.cancel`), exact: true }).click();
       await dialog.waitFor({ state: 'detached' });
-    } else if (ui.case === 'join-link') {
+    } else if (ui.case.startsWith('join-link')) {
       const add = `${relay}.add`;
       await page.getByRole('button', { name: await ui.t(`${relay}.actions.editHost`), exact: true }).waitFor();
-      await page.getByRole('button', { name: await ui.t(`${add}.enlarge`), exact: true }).click();
+      const enlarge = page.getByRole('button', { name: await ui.t(`${add}.enlarge`), exact: true });
+      // The action row must reflow, not push Enlarge past the clipped route list edge.
+      const [button, list] = await Promise.all([enlarge.boundingBox(), page.getByRole('listitem').first().boundingBox()]);
+      assert.ok(button.x + button.width <= list.x + list.width, `Enlarge is clipped: ends at ${button.x + button.width}, list ends at ${list.x + list.width}`);
+      if (ui.case === 'join-link-narrow') {
+        await ui.capture('narrow');
+        return;
+      }
+      await enlarge.click();
       const dialog = page.getByRole('dialog', { name: await ui.t(`${add}.qrAlt`), exact: true });
       await dialog.waitFor();
       // 放大版按大尺寸重新生成,不是把 200px 的小图拉伸。

@@ -347,7 +347,7 @@ function AddDevice({
             )}
             <div className="flex min-w-0 flex-col gap-2">
               <p className="break-all font-mono text-12 text-[var(--text-secondary)]">{link}</p>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   variant="secondary"
                   size="sm"

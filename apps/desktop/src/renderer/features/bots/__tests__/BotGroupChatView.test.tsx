@@ -8,7 +8,7 @@ import { MarkdownMermaidBlock } from '@/components/chat/MarkdownMermaidBlock';
 import { prepareShareMessageClone, queryShareableMessageIds } from '@/lib/shareConversationImage';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { clearDraft, getDraft } from '@/lib/composerDraftStore';
+import { captureDraftDiscardToken, clearDraft, getAllDraftAttachmentUrls, getDraft, isDraftDiscardTokenCurrent, saveDraft } from '@/lib/composerDraftStore';
 import { FeatureSidebarSlotProvider, useFeatureContentHeader } from '../../feature-context';
 import { markBotRead, getBotLastReadAt, botGroupReadKey, resetBotReadStateForTests } from '../botReadState';
 import { botGroupAttachmentScope, botGroupThreadDraftKey } from '../botGroupAttachments';
@@ -1630,6 +1630,32 @@ describe('BotGroupChatView', () => {
     await waitFor(() => expect(mocks.getBotGroup).toHaveBeenCalledTimes(2));
     act(() => mocks.pushes.forEach((push) => push({ groupId: 'g1', change: 'deleted' })));
     expect(await screen.findByText('bots.groupChat.unavailableTitle')).toBeTruthy();
+  });
+
+  // #8084 review: deleted rooms left their new thread trays in the media live set.
+  // Unit: real group view, one saved thread image, authoritative deletion/access loss.
+  it.each(['deleted', 'hidden', 'NOT_FOUND', 'PERMISSION_DENIED'] as const)('discards thread attachment drafts after %s', async boundary => {
+    const scope = botGroupThreadDraftKey('g1', 'u1');
+    const url = 'cindy-media://blobs/deleted-thread.png';
+    saveDraft(scope, { text: null, attachments: [{ id: 'deleted-thread', name: 'photo.png', ext: '.png',
+      category: 'image', mimeType: 'image/png', size: 12, path: '', url }] });
+    const token = captureDraftDiscardToken(scope);
+    const view = renderView();
+    await screen.findByText('周六 8:10 有票');
+    if (boundary === 'NOT_FOUND' || boundary === 'PERMISSION_DENIED') {
+      mocks.getBotGroup.mockResolvedValue({ ok: false, errorCode: boundary, message: '' });
+      act(() => mocks.pushes.forEach(push => push({ groupId: 'g1', change: 'messages' })));
+    } else {
+      act(() => mocks.pushes.forEach(push => push(boundary === 'deleted'
+        ? { groupId: 'g1', change: 'deleted' }
+        : { groupId: 'g1', change: 'list', listState: { hidden: true, revision: 1 } })));
+    }
+    await screen.findByText('bots.groupChat.unavailableTitle');
+    expect(getDraft(scope)).toBeUndefined();
+    expect(isDraftDiscardTokenCurrent(token)).toBe(false);
+    expect(getAllDraftAttachmentUrls()).not.toContain(url);
+    view.unmount();
+    expect(getDraft(scope)).toBeUndefined();
   });
 
   describe('failed timeline read recovery', () => {
@@ -4370,6 +4396,85 @@ it.each([false, true])('keeps the group stop control enabled for another running
   }
 });
 
+// #8047: queued is busy, but creation/mount/plan-edit time does not prove work began.
+it.each(['reply', 'step'] as const)('shows a queued %s without generation or work elapsed', async activity => {
+  const queuedPlan = plan({ status: 'running', currentStep: 0,
+    steps: [{ ...plan().steps[0]!, status: 'running' }, plan().steps[1]!] });
+  mocks.getBotGroup.mockResolvedValue({ ok: true, group: detail({
+    ...(activity === 'step' ? withPlan(queuedPlan, []) : {}),
+    speakingBotIds: ['mimi'],
+    round: { status: 'running', canContinue: false, speakers: [{ botId: 'mimi', activity,
+      executionId: 'queued-execution', executionStatus: 'queued', sessionId: null, startedAt: Date.now() - 120_000 }] },
+  }) });
+  renderView();
+  const strip = await screen.findByTestId('bot-group-progress');
+  expect(screen.getByTestId('content-header').textContent).toContain('bots.groupChat.header.queued:咪咪');
+  expect(strip.textContent).toContain('bots.groupChat.progress.queued');
+  expect(strip.textContent).not.toContain('chat.teammateProcess.elapsed');
+  expect(strip.textContent).not.toContain('phase:processing');
+  expect(screen.getByRole('button', { name: 'bots.groupChat.progress.stop' })).not.toHaveProperty('disabled', true);
+});
+
+it('shows newly queued work immediately in the timeline', async () => {
+  mocks.getBotGroup.mockResolvedValue({ ok: true, group: detail({ speakingBotIds: ['mimi'],
+    round: { status: 'running', canContinue: false, speakers: [{ botId: 'mimi', activity: 'reply',
+      executionId: 'just-queued', executionStatus: 'queued', sessionId: null, startedAt: Date.now() }] },
+  }) });
+  renderView();
+  const row = await screen.findByTestId('bot-group-progress');
+  expect(row.textContent).toContain('bots.groupChat.progress.queued');
+  expect(row.textContent).not.toContain('phase:processing');
+});
+
+it.each([null, 'live'] as const)('only shows server work elapsed with a live start (%s)', async source => {
+  if (source) mocks.activity = { compactDetail: '', startedAtMs: Date.now() - 10_000, phase: 'running' };
+  mocks.getBotGroup.mockResolvedValue({ ok: true, group: detail({ speakingBotIds: ['mimi'],
+    round: { status: 'running', canContinue: false, speakers: [{ botId: 'mimi', activity: 'reply',
+      executionId: 'claimed', executionStatus: 'running', sessionId: 'lane-mimi', startedAt: Date.now() - 120_000 }] },
+  }) });
+  renderView();
+  const strip = await screen.findByTestId('bot-group-progress');
+  expect(strip.textContent?.includes('chat.teammateProcess.elapsed')).toBe(!!source);
+  expect(screen.getByTestId('content-header').textContent).toContain('bots.groupChat.header.speaking:咪咪');
+});
+
+it.each(['none', 'work', 'talk'] as const)('prioritizes a running speaker over a queued speaker in the header (plan: %s)', async kind => {
+  const queuedPlan = plan({ kind: kind === 'talk' ? 'talk' : 'work', status: 'running', currentStep: 0,
+    steps: [{ ...plan().steps[0]!, status: 'running' }, plan().steps[1]!] });
+  mocks.getBotGroup.mockResolvedValue({ ok: true, group: detail({ speakingBotIds: ['mimi', 'xiaoman'],
+    ...(kind !== 'none' ? withPlan(queuedPlan, []) : {}),
+    round: { status: 'running', canContinue: false, speakers: [
+      { botId: 'mimi', activity: kind === 'none' ? 'reply' : 'step', executionStatus: 'queued', sessionId: null },
+      { botId: 'xiaoman', activity: 'reply', executionStatus: 'running', sessionId: null },
+    ] },
+  }) });
+  renderView();
+  await waitFor(() => expect(screen.getByTestId('content-header').textContent).toContain('bots.groupChat.header.speaking:小满'));
+});
+
+it('replaces queued status with live work when the execution starts', async () => {
+  const execution = { botId: 'mimi', activity: 'reply' as const, executionId: 'reused-lane',
+    sessionId: 'lane-mimi', startedAt: Date.now() - 120_000 };
+  // A reused lane can still hold the previous turn's activity while queued.
+  mocks.activity = { compactDetail: 'Previous turn', startedAtMs: Date.now() - 60_000, phase: 'running' };
+  const group = (executionStatus: 'queued' | 'running') => detail({ speakingBotIds: ['mimi'],
+    round: { status: 'running', canContinue: false, speakers: [{ ...execution, executionStatus }] },
+  });
+  mocks.getBotGroup.mockResolvedValue({ ok: true, group: group('queued') });
+  renderView();
+  const strip = await screen.findByTestId('bot-group-progress');
+  expect(strip.textContent).toContain('bots.groupChat.progress.queued');
+  expect(strip.textContent).not.toContain('chat.teammateProcess.elapsed');
+  expect(strip.textContent).not.toContain('Previous turn');
+
+  mocks.activity = { compactDetail: 'Current work', startedAtMs: Date.now() - 10_000, phase: 'running' };
+  mocks.getBotGroup.mockResolvedValue({ ok: true, group: group('running') });
+  await act(async () => mocks.pushes.forEach(push => push({ groupId: 'g1', change: 'round' })));
+  await waitFor(() => expect(screen.getByTestId('bot-group-progress').textContent).toContain('chat.teammateProcess.elapsed'));
+  expect(screen.getByTestId('bot-group-progress').textContent).not.toContain('bots.groupChat.progress.queued');
+  expect(screen.getByTestId('bot-group-progress').textContent).not.toContain('Previous turn');
+  expect(screen.getByTestId('content-header').textContent).toContain('bots.groupChat.header.speaking:咪咪');
+});
 
 // Unit: a companion home change does not move the group session history.
 // Exercise the actual historical disclosure and its existing device-link reader.

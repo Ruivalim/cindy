@@ -1228,7 +1228,6 @@
     "clipboardSyncSkipped": "This format is not supported for clipboard sync and was skipped.",
     "clipboardSyncTooLarge": "Content exceeds the clipboard sync size limit and was skipped.",
     "clipboardSyncPermission": "Clipboard sync needs paste access. Allow it, then return to this window to resume.",
-    "clipboardSyncWaiting": "The remote computer’s clipboard is not available right now (it may be locked). Sync resumes automatically.",
     "lockingOnExit": "Locking computer…",
     "idleLock": "Disconnect and lock when idle",
     "idleNever": "Never",

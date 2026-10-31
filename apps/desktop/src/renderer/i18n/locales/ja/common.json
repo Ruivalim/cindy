@@ -1216,7 +1216,6 @@
     "clipboardSyncSkipped": "この形式はクリップボード同期に対応していないためスキップしました。",
     "clipboardSyncTooLarge": "クリップボード同期のサイズ上限を超えたためスキップしました。",
     "clipboardSyncPermission": "クリップボード同期にはペーストの許可が必要です。許可後、このウィンドウに戻ると再開します。",
-    "clipboardSyncWaiting": "リモートのパソコンのクリップボードに現在アクセスできません（ロック中の可能性があります）。自動で同期を再開します。",
     "lockingOnExit": "コンピューターをロック中…",
     "idleLock": "操作がない場合に切断してロック",
     "idleNever": "しない",

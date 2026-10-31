@@ -206,7 +206,7 @@ export default function IncomingShareScreen() {
                   if (conversation?.kind === 'session') choose(incomingShareDestination(item.host.deviceId, conversation.sessionId, item.item.ref),
                     () => router.dismissTo(teammateResourceRoute(item, i18n.language)));
                 }}>
-                <RemoteCompanionAvatar avatar={item.item.display.avatar} deviceId={item.host.deviceId} name={name} online={devices.some(device => device.deviceId === item.host.deviceId)} size={44} framed />
+                <RemoteCompanionAvatar avatar={item.item.display.avatar} deviceId={item.host.deviceId} name={name} online={devices.some(device => device.deviceId === item.host.deviceId)} size={iconSize.hero} framed />
                 <Text numberOfLines={1} style={styles.companionName}>{name}</Text>
                 <Text numberOfLines={1} style={styles.metadata}>{available ? item.host.deviceName : t('composer.incomingShare.unavailable')}</Text>
               </Pressable>;

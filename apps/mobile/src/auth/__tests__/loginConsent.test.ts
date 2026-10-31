@@ -167,7 +167,8 @@ describe("consent 文案(5 语 catalog 全给标记链接段)", () => {
   // DESIGN.md §16.2 长度预算:单行槽超长是文案 bug,只能改文案,禁止缩字号 / 折行吸收。
   // 协议行在固定宽度里居中,超预算时两端被裁(pt-BR 实机:radio 只剩半个、隐私链接被切);
   // 弹窗标题单行,超预算时出省略号。估宽公式与桌面 legalSegments.catalog.test.ts 同源。
-  it.each(["zh-CN", "zh-TW", "en", "ja", "ko", "es", "fr", "de", "pt-PT", "pt-BR"] as const)(
+  // 取 catalog 的全部语言,新增语言(如文言)自动进入预算。
+  it.each(Object.keys(loginMessages) as (keyof typeof loginMessages)[])(
     "%s:协议行与弹窗标题在单行长度预算内",
     (locale) => {
       const estimate = (text: string, font: number) =>

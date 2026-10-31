@@ -42,7 +42,7 @@ function loadRegionBuildConfig(region, { selfHosted = false } = {}) {
     }
     console.warn(
       `[cindy] 缺少 ${real},本地构建回落空白模板 ${path.basename(example)}` +
-        '(app 身份用内置默认,统计关闭,Google 登录改走浏览器)。需自定义请复制该模板为 self-host-regions.json 填值。',
+        '(app 身份用内置默认,统计关闭;Global 的 Google 登录改走浏览器,CN 不提供 Google)。需自定义请复制该模板为 self-host-regions.json 填值。',
     );
     file = example;
   }

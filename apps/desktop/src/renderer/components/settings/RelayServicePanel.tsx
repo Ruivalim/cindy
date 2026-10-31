@@ -379,7 +379,7 @@ function AddDevice({
           <FormDialog
             open={enlargeOpen && enlarged !== null}
             onClose={() => setEnlargeOpen(false)}
-            title={t(`${k}.qrAlt`)}
+            title={t(`${k}.qrTitle`)}
             description={t(`${k}.hint`)}
           >
             <div className="flex justify-center px-4 pb-4">

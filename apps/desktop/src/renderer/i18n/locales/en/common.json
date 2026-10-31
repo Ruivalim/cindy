@@ -5821,6 +5821,7 @@
           "create": "Add device",
           "hint": "Scan it with your phone's camera, or send the link to another computer and paste it under Join another relay. The link works once and expires in 10 minutes.",
           "qrAlt": "QR code to join the relay",
+          "qrTitle": "QR Code to Join the Relay",
           "copy": "Copy link",
           "copied": "Join link copied",
           "newLink": "New link",

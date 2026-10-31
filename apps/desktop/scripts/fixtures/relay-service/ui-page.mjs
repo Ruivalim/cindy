@@ -182,7 +182,7 @@ export default {
         return;
       }
       await enlarge.click();
-      const dialog = page.getByRole('dialog', { name: await ui.t(`${add}.qrAlt`), exact: true });
+      const dialog = page.getByRole('dialog', { name: await ui.t(`${add}.qrTitle`), exact: true });
       await dialog.waitFor();
       // 放大版按大尺寸重新生成,不是把 200px 的小图拉伸。
       const qr = dialog.getByRole('img', { name: await ui.t(`${add}.qrAlt`), exact: true });

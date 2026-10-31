@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest';
 import type { ToastOptions } from '@/lib/toast';
 
-// #8237, unit/jsdom: repository discovery must not authorize an import. Loader
+// Issue 8237, unit/jsdom: repository discovery must not authorize an import. Loader
 // tests cannot detect a UI that submits on cancel, uses a newer unreviewed hash,
 // or loses the review action after StrictMode's effect replay.
 const state = vi.hoisted(() => ({ info: vi.fn(), dismiss: vi.fn(), error: vi.fn(),

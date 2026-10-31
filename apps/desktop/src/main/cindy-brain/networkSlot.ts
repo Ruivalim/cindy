@@ -26,7 +26,8 @@
 import { randomUUID } from 'node:crypto';
 
 import { sniffMediaMime, additionalMp3BytesNeeded } from '../cindy-media/sniffMediaMime.js';
-import { isCindyOfficialTrustInfo } from './GhostManager.js';
+import { classifyFetchNetworkFailure, fetchTimeoutFailure } from './fetchFailure.js';
+import { canUseGithubHostCredentials } from './GhostManager.js';
 
 import {
   GHOST_FETCH_BODY_MAX_BYTES,
@@ -1105,13 +1106,7 @@ export class GhostNetworkSlot {
     const declaredHosts = net?.hosts ?? [];
     const declaredSecrets = net?.secrets ?? [];
     const ghCliSecrets = declaredSecrets.filter((secret) => secret.source === 'gh-cli');
-    if (
-      ghCliSecrets.length > 0 &&
-      (ghost.manifest.id !== 'cindy-github' || ghost.namespace != null ||
-        ghost.namespaceState === 'pending' ||
-        ghost.namespaceState === 'unconfirmed' ||
-        !isCindyOfficialTrustInfo(ghost.trust))
-    ) {
+    if (ghCliSecrets.length > 0 && !canUseGithubHostCredentials(ghost)) {
       return { ok: false, message: '本意识未通过官方 GitHub 宿主凭证信任校验，已阻断 gh-cli 凭证请求' };
     }
     // 连接地址每单现读快照(用户在设置页增删地址下一单即生效);本单内含
@@ -1622,14 +1617,17 @@ export class GhostNetworkSlot {
       };
     } catch (err) {
       const aborted = controller.signal.aborted;
-      const message = nodeAuth ? (aborted ? 'NODE_AUTH_REQUEST_ABORTED' : 'NODE_AUTH_REQUEST_FAILED') : aborted
-        ? `请求超时(${timeoutMs}ms)`
+      // 网络层失败带稳定 errorCode,原因码进 message;识别不出的(守门抛错等)保持原文、不打码。
+      const network = nodeAuth ? null : aborted ? fetchTimeoutFailure(timeoutMs) : classifyFetchNetworkFailure(err);
+      const message = nodeAuth ? (aborted ? 'NODE_AUTH_REQUEST_ABORTED' : 'NODE_AUTH_REQUEST_FAILED')
+        : network ? network.reason
         : err instanceof Error ? err.message : String(err);
       // 错误消息可能带 URL(含 query),日志只记 host,消息本身回给沙箱前不动
       // (意识本来就知道自己请求了什么,不构成泄露)。
       this.deps.log?.warn('ghost fetch-request failed', { ghostId: instanceKey, callId, method, host: url.hostname, aborted, error: message,
+        ...(network ? { errorCode: network.errorCode, ...(network.causeCode ? { causeCode: network.causeCode } : {}) } : {}),
       });
-      return { ok: false, message: `请求失败:${message}` };
+      return { ok: false, message: `请求失败:${message}`, ...(network ? { errorCode: network.errorCode } : {}) };
     } finally {
       if (hasTransfer) progress?.(undefined, undefined, '文件处理结束');
       nodeAuth?.signal.removeEventListener('abort', abortNode);

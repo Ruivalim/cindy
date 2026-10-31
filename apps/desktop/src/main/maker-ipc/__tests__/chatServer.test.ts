@@ -641,6 +641,110 @@ describe('Chat Server result delivery and refresh', () => {
     expect(fixture.handle.mock.calls.filter(([route, method]) => route.endsWith('/messages') && method === 'POST')).toHaveLength(1);
   });
 
+  // Thread attachment regression: real reply entry, injected byte preparation/transport.
+  // Existing send tests covered only main-chat media. Unit tier: image-only reply + failed POST.
+  it('uploads image-only thread replies and settles media references on failure and retry', async () => {
+    const commit = vi.fn(), discard = vi.fn();
+    const attachment = { id: 'image', name: 'photo.png', category: 'image' as const,
+      mimeType: 'image/png', size: 12, url: 'cindy-media://blobs/photo.png', path: '/fixture/photo.png', ext: '.png' };
+    const media = { type: 'media' as const, mediaId: '80000000-0000-4000-8000-000000000001', caption: 'photo.png' };
+    deps.prepareAttachments = vi.fn(async () => ({ ok: true as const, attachments: [attachment], commit, discard }));
+    fixture.upload.mockResolvedValue([media]);
+    let fail = true;
+    fixture.handle.mockImplementation((route, method) => {
+      if (route.endsWith('/members')) return { body: [] };
+      if (route.endsWith('/messages') && method === 'POST') return fail
+        ? { status: 500, body: { error: { code: 'UPSTREAM_FAILED' } } }
+        : { body: { id: 'saved-image-reply' } };
+      return response(route);
+    });
+    const input = { groupId: roomId, rootId: '70000000-0000-4000-8000-000000000001',
+      text: '', clientId: 'thread-image-1', mentions: { all: false, botIds: [] }, attachments: [attachment] };
+    expect(await service.chatServer!.reply(input)).toMatchObject({ ok: false });
+    // A 5xx does not prove the POST was refused; retain the original upload for retry.
+    expect(discard).not.toHaveBeenCalled();
+    expect(commit).not.toHaveBeenCalled();
+    fail = false;
+    expect(await service.chatServer!.reply(input)).toEqual({ ok: true, messageId: 'saved-image-reply' });
+    expect(commit).toHaveBeenCalledTimes(1);
+    expect(discard).not.toHaveBeenCalled();
+    expect(deps.prepareAttachments).toHaveBeenCalledOnce();
+    expect(fixture.upload).toHaveBeenCalledOnce();
+    expect(fixture.upload).toHaveBeenLastCalledWith(roomId, input.clientId, [attachment], selfId);
+    const posts = fixture.handle.mock.calls.filter(([route, method]) => route.endsWith('/messages') && method === 'POST');
+    expect(posts.map(([, , body]) => body)).toEqual([0, 1].map(() => ({
+      operationId: input.clientId, threadRootId: input.rootId, content: [media], mentions: [],
+    })));
+  });
+
+  // Review regression: a lost ACK followed by a changed/deleted local file must replay the
+  // uploaded body. Unit tier at reply's production entry; ordinary retry/ref settlement is above.
+  it.each(['changed', 'deleted'] as const)('replays an uncertain thread attachment POST after its source is %s', async source => {
+    const attachment = { id: 'file', name: 'notes.md', category: 'text' as const,
+      mimeType: 'text/markdown', size: 12, url: null, path: '/fixture/notes.md', ext: '.md' };
+    deps.prepareAttachments = vi.fn(async () => ({ ok: true as const, attachments: [attachment], commit: vi.fn(), discard: vi.fn() }));
+    let sourceVersion = 'original';
+    // The real uploader hashes source bytes into its media operation id and rejects missing files.
+    fixture.upload.mockImplementation(async () => {
+      if (sourceVersion === 'deleted') throw new Error('ATTACHMENT_UNAVAILABLE');
+      return [{ type: 'media', mediaId: sourceVersion, caption: attachment.name }];
+    });
+    let committed: unknown;
+    fixture.handle.mockImplementation((route, method, body) => {
+      if (route.endsWith('/members')) return { body: [] };
+      if (route.endsWith('/messages') && method === 'POST') {
+        if (!committed) {
+          committed = structuredClone(body);
+          throw Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' });
+        }
+        return JSON.stringify(body) === JSON.stringify(committed)
+          ? { body: { id: 'saved-file-reply' } }
+          : { status: 409, body: { error: { code: 'OPERATION_CONFLICT' } } };
+      }
+      return response(route);
+    });
+    const input = { groupId: roomId, rootId: '70000000-0000-4000-8000-000000000001', text: '',
+      clientId: 'thread-file-uncertain', mentions: { all: false, botIds: [] }, attachments: [{ ...attachment, url: undefined }] };
+    expect(await service.chatServer!.reply(input)).toMatchObject({ ok: false });
+    sourceVersion = source;
+    expect(await service.chatServer!.reply(input)).toEqual({ ok: true, messageId: 'saved-file-reply' });
+    // A successful host response can also be lost before the composer receives it.
+    expect(await service.chatServer!.reply(input)).toEqual({ ok: true, messageId: 'saved-file-reply' });
+    expect(fixture.upload).toHaveBeenCalledOnce();
+  });
+
+  // Complement the uncertain-POST case: a failed upload or explicit 400 stored no message,
+  // so it must release its media and permit fresh preparation on the next attempt.
+  it.each(['upload', 'post'] as const)('releases thread media after a definite failure at %s', async stage => {
+    const attachment = { id: 'file', name: 'notes.md', category: 'text' as const,
+      mimeType: 'text/markdown', size: 12, url: null, path: '/fixture/notes.md', ext: '.md' };
+    const commit = vi.fn(), discard = vi.fn();
+    deps.prepareAttachments = vi.fn(async () => ({ ok: true as const, attachments: [attachment], commit, discard }));
+    let fail = true;
+    fixture.upload.mockImplementation(async () => {
+      if (fail && stage === 'upload') throw new Error('ATTACHMENT_UNAVAILABLE');
+      return [{ type: 'media', mediaId: fail ? 'first-upload' : 'fresh-upload', caption: attachment.name }];
+    });
+    fixture.handle.mockImplementation((route, method) => {
+      if (route.endsWith('/members')) return { body: [] };
+      if (route.endsWith('/messages') && method === 'POST') return fail
+        ? { status: 400, body: { error: { code: 'INVALID_INPUT' } } }
+        : { body: { id: 'fresh-file-reply' } };
+      return response(route);
+    });
+    const input = { groupId: roomId, rootId: '70000000-0000-4000-8000-000000000001', text: '',
+      clientId: 'thread-file-refused', mentions: { all: false, botIds: [] }, attachments: [{ ...attachment, url: undefined }] };
+    expect(await service.chatServer!.reply(input)).toMatchObject({ ok: false });
+    expect(discard).toHaveBeenCalledOnce();
+    expect(commit).not.toHaveBeenCalled();
+    fail = false;
+    expect(await service.chatServer!.reply(input)).toEqual({ ok: true, messageId: 'fresh-file-reply' });
+    expect(deps.prepareAttachments).toHaveBeenCalledTimes(2);
+    expect(fixture.upload).toHaveBeenCalledTimes(2);
+    expect(commit).toHaveBeenCalledOnce();
+    expect(discard).toHaveBeenCalledOnce();
+  });
+
   it('reports an HTTP send failure with safe route, code and status', async () => {
     deps.log = { warn: vi.fn() };
     fixture.handle.mockImplementation((route, method) => {
@@ -2292,6 +2396,20 @@ describe('Chat Server result delivery and refresh', () => {
         await vi.advanceTimersByTimeAsync(0);
       };
 
+      // #8045: cancelling an in-flight arrangement is a real stop even before a plan/execution exists.
+      it('reports a stop while the organizer is still deciding and fences the late plan', async () => {
+        divisionServer();
+        let finish!: (value: unknown) => void;
+        deps.decidePlan = vi.fn(() => new Promise(resolve => { finish = resolve; })) as typeof deps.decidePlan;
+        await send('Make a draft');
+        expect(deps.decidePlan).toHaveBeenCalled();
+        expect(await service.stopRound(roomId)).toEqual({ ok: true });
+        finish({ needsPlan: true, steps: [{ botId: otherBot, task: 'draft' }] });
+        await vi.advanceTimersByTimeAsync(0);
+        expect(posts().some(([route]) => route === `/conversations/${roomId}/plans`)).toBe(false);
+        expect(await service.stopRound(roomId)).toMatchObject({ ok: false, errorCode: 'NOTHING_TO_STOP' });
+      });
+
       it('starts the card a request writes out, without the organizer', async () => {
         divisionServer();
         deps.decidePlan = vi.fn() as typeof deps.decidePlan;
@@ -2419,6 +2537,64 @@ describe('Chat Server result delivery and refresh', () => {
       expect(await service.stopRound(roomId, scope)).toEqual({ ok: true });
       const stops = fixture.requests.slice(from).filter(r => r.url.endsWith('/control'));
       expect(stops.map(r => [Object.entries(ids).find(([, id]) => r.url.includes(id))![0], r.actor || undefined])).toEqual(expected);
+    });
+
+    // #8045: exercise the production stop entry point, including server refusals and races.
+    it.each([
+      ['missing requester', undefined, 'STOP_OWNERSHIP_UNKNOWN'],
+      ['another requester', otherHuman, 'PERMISSION_DENIED'],
+      ['no active work', null, 'NOTHING_TO_STOP'],
+    ])('does not report a successful stop with %s', async (_label, requester, errorCode) => {
+      singleSpeaker(route => route === `/conversations/${roomId}/executions` ? { body: requester === null ? []
+        : [{ ...execution, status: 'queued', bot_id: foreignBot, requester_id: requester }] } : undefined);
+      const from = fixture.requests.length;
+      expect(await service.stopRound(roomId)).toMatchObject({ ok: false, errorCode });
+      expect(fixture.requests.slice(from).filter(r => r.url.endsWith('/control'))).toEqual([]);
+    });
+
+    it.each([
+      [403, 'queued', 'PERMISSION_DENIED'],
+      [409, 'running', 'REVISION_CONFLICT'],
+      [404, 'needs_input', 'SERVICE_ERROR'],
+      [409, 'cancelled', null],
+      [404, 'absent', 'SERVICE_ERROR'],
+      [409, 'stopping', null],
+      [409, 'succeeded', null],
+      [409, 'unknown', 'REVISION_CONFLICT'],
+    ])('rechecks a %s stop response and reports the current %s state', async (status, nextStatus, errorCode) => {
+      let rejected = false;
+      singleSpeaker(route => {
+        if (route.endsWith('/control')) { rejected = true; return { status, body: { error: { code: 'CONTROL_REFUSED' } } }; }
+        if (route === `/conversations/${roomId}/executions`) return { body: rejected && nextStatus === 'absent' ? []
+          : [{ ...execution, status: rejected ? nextStatus : 'queued', bot_id: foreignBot, requester_id: selfId }] };
+      });
+      expect(await service.stopRound(roomId)).toMatchObject(errorCode ? { ok: false, errorCode } : { ok: true });
+      expect(fixture.handle.mock.calls.filter(([route]) => route === `/conversations/${roomId}/executions`)).toHaveLength(2);
+    });
+
+    it('still stops an eligible execution when another stop is refused, without reporting full success', async () => {
+      const secondId = '40000000-0000-4000-8000-00000000000a';
+      singleSpeaker(route => {
+        if (route.endsWith(`/${execution.id}/control`)) return { status: 403, body: { error: { code: 'ROLE_REQUIRED' } } };
+        if (route === `/conversations/${roomId}/executions`) return { body: [execution.id, secondId].map(id =>
+          ({ ...execution, id, status: 'queued', bot_id: foreignBot, requester_id: selfId })) };
+      });
+      expect(await service.stopRound(roomId)).toMatchObject({ ok: false, errorCode: 'PERMISSION_DENIED' });
+      expect(fixture.handle.mock.calls.filter(([route]) => route.endsWith('/control')).map(([route]) => route))
+        .toContain(`/conversations/${roomId}/executions/${secondId}/control`);
+    });
+
+    it.each(['running', 'stopped'])('does not hide a rejected plan stop when the plan remains %s', async status => {
+      const planId = '80000000-0000-4000-8000-000000000002';
+      let rejected = false;
+      const plan = { id: planId, creator_id: selfId, status: 'running', revision: 1 };
+      singleSpeaker((route, method) => {
+        if (route === `/conversations/${roomId}/plans/${planId}` && method === 'POST') {
+          rejected = true; return { status: 409, body: { error: { code: 'PLAN_CHANGED' } } };
+        }
+        if (route.includes('/plans')) return { body: [{ ...plan, status: rejected ? status : 'running' }] };
+      });
+      expect(await service.stopRound(roomId)).toMatchObject(status === 'running' ? { ok: false, errorCode: 'REVISION_CONFLICT' } : { ok: true });
     });
 
     // Without the capability the server still runs rounds: Stop ends the whole round and replies read the full main group.

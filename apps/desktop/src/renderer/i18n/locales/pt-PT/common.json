@@ -18907,5 +18907,32 @@
     "unavailable": "Esta compilação não tem um destino para carregar relatórios. Abra os ficheiros locais para os partilhar com o apoio técnico.",
     "consent": "Aceite a política de privacidade nas Definições antes de enviar. Os seus ficheiros locais são preservados.",
     "failed": "A operação não foi concluída. Tente novamente ou abra os ficheiros locais."
+  },
+  "attachmentPreview": {
+    "more": "Mais ações",
+    "retry": "Tentar novamente",
+    "image": "Imagem",
+    "video": "Vídeo",
+    "file": "Ficheiro",
+    "close": "Fechar",
+    "reset": "Repor vista",
+    "open": "Abrir pré-visualização",
+    "zoomIn": "Ampliar",
+    "zoomOut": "Reduzir",
+    "fit": "Ajustar à janela",
+    "actualSize": "Tamanho real (1:1)",
+    "save": "Guardar original",
+    "share": "Partilhar",
+    "previous": "Anexo anterior",
+    "next": "Anexo seguinte",
+    "password": "Introduzir palavra-passe do PDF",
+    "find": "Pesquisar no documento",
+    "matches": "{{count}} páginas correspondentes",
+    "previousPage": "Página anterior",
+    "nextPage": "Página seguinte",
+    "source": "Ver código-fonte",
+    "rendered": "Ver documento",
+    "wrap": "Moldar linhas",
+    "lineNumbers": "Números de linha"
   }
 }

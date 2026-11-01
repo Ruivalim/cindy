@@ -392,7 +392,7 @@ describe('ImageLightbox annotate mode', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('still reports a missing image and closes when there is no burned fallback', () => {
+  it('keeps the close and retry controls available when the original image is missing', () => {
     vi.useFakeTimers();
     const onClose = vi.fn();
     render(
@@ -403,6 +403,12 @@ describe('ImageLightbox annotate mode', () => {
       />,
     );
     fireEvent.error(lightboxImage());
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: label('attachmentPreview.retry') })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: label('chat.lightbox.close') }));
     act(() => {
       vi.advanceTimersByTime(250);
     });

@@ -39,9 +39,11 @@ import {
 
 interface MarkdownMermaidBlockProps {
   raw: string;
+  fullscreen?: boolean;
+  onClose?: () => void;
 }
 
-type MermaidModule = typeof import('mermaid')['default'];
+type MermaidModule = (typeof import('mermaid'))['default'];
 
 let mermaidPromise: Promise<MermaidModule> | null = null;
 
@@ -57,6 +59,8 @@ function isDarkMode(): boolean {
 
 export const MarkdownMermaidBlock = memo(function MarkdownMermaidBlock({
   raw,
+  fullscreen = false,
+  onClose,
 }: MarkdownMermaidBlockProps) {
   const { t } = useTranslation();
   const reactId = useId();
@@ -209,6 +213,19 @@ export const MarkdownMermaidBlock = memo(function MarkdownMermaidBlock({
   // Source-only view: explicitly toggled, OR no SVG ever rendered AND we have
   // a hard error (not just streaming-partial).
   const showSourceView = showSource || (svg == null && error != null);
+
+  if (fullscreen && svg)
+    return (
+      <>
+        <MermaidLightbox
+          svg={svg}
+          source={raw}
+          onClose={onClose ?? (() => {})}
+          onAnnotate={canAnnotate ? openAnnotate : undefined}
+        />
+        {annotateNode}
+      </>
+    );
 
   return (
     <div ref={blockRef} className="group relative my-3">

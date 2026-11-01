@@ -1420,13 +1420,18 @@ export function buildPiNativeProvidersFromConfigs(
         // Public/default/discovery/user precedence was resolved by the active catalog.
         // Carry those facts to the serializer instead of reintroducing SDK precedence.
         // Endpoint, protocol and credentials remain exclusively connection-owned.
-        const resolved = resolvedCatalog?.providers.find(p => p.id === cfg.id)
-          ?.models.pi?.find(model => model.id === configuredModel.id);
+        const resolvedProvider = resolvedCatalog?.providers.find(p => p.id === runtimeCustomProviderId(cfg.id))
+          ?? resolvedCatalog?.providers.find(p => p.id === cfg.id);
+        const resolved = resolvedProvider?.models.pi?.find(model => model.id === configuredModel.id);
         const m = resolved ? {
           ...configuredModel,
           name: resolved.name,
           contextWindow: resolved.contextWindow,
-          supportsImageInput: resolved.supportsImageInput ?? configuredModel.supportsImageInput,
+          // A same-id built-in row is only a fallback. A user projection already
+          // includes form edits and the higher-priority local catalog overrides.
+          supportsImageInput: resolvedProvider?.source === 'user'
+            ? resolved.supportsImageInput ?? configuredModel.supportsImageInput
+            : configuredModel.supportsImageInput ?? resolved.supportsImageInput,
           reasoning: resolved.efforts.length > 0,
           reasoningEfforts: resolved.efforts.filter((effort): effort is PiReasoningEffort =>
             (PI_REASONING_EFFORTS as readonly string[]).includes(effort)),

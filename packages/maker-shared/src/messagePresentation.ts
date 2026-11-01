@@ -708,7 +708,7 @@ export function isContentToolFailureLike(
   const firstLine = secondary.split('\n', 1)[0].trim();
   // 字符类是全角冒号 U+FF1A + 半角冒号 U+003A 并列;别把全角的归一化成半角,
   // 会变成重复字符类(CodeQL 已拦过一次)。
-  return /^(error\b|request failed\b|failed to \S|enoent\b|eacces\b|permission denied\b|错误[：:]|(读取|搜索|请求|抓取)失败|无法(读取|访问|打开|获取))/i
+  return /^(error\b|mcp error(?:\s+-?\d+)?[：:]|request failed\b|failed to \S|enoent\b|eacces\b|permission denied\b|错误[：:]|(读取|搜索|请求|抓取)失败|无法(读取|访问|打开|获取))/i
     .test(firstLine);
 }
 

@@ -51,8 +51,17 @@ describe('messagePresentation', () => {
     ['{"isError":true,"content":[{"type":"text","text":"Unavailable"}]}', true],
     ['{"ok":false,"error":"Unavailable"}', true],
     ['Error: permission denied', true],
+    // Imported Claude history keeps result text without the original is_error.
+    ['MCP error -32603: request failed', true],
+    ['MCP error: request failed', true],
+    ['Available skills\nMCP error -32603: request failed is a recovery example', false],
   ])('classifies MCP result %s as failure=%s', (result, failed) => {
     expect(isToolResultFailureLike(describeToolUse('mcp__helper__call_tool', {}), result)).toBe(failed);
+    const row = message('mcp-result', {
+      label: 'mcp__helper__call_tool', body: '', secondaryBody: result,
+      source: { clientId: 'mcp-result', content: { toolName: 'mcp__helper__call_tool', input: {} }, createdAt: '2026-01-01T00:00:00.000Z' },
+    });
+    expect(summarizeToolRowPresentation(row).hasError).toBe(failed);
   });
   it('exposes the same compact tool wording to remote channel previews', () => {
     expect(summarizeToolUseText('Read', { file_path: '/repo/src/app.ts' })).toEqual({

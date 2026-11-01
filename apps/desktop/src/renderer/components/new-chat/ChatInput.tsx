@@ -160,7 +160,7 @@ import {
   confirmAgentSwitchRisk,
   isAgentSwitchEchoConfigConsistent,
   isAgentSwitchResponseFresh,
-  relocationKeepsNativeHistory,
+  relocationDescriptionKey,
   resolveAgentSwitchAckAction,
 } from './agentSwitchConfirmation';
 import {
@@ -7758,14 +7758,12 @@ export function ChatInput({
                   device: deviceDisplayName(deviceLinkDeviceId, deviceLinkDeviceName),
                 })
               : t('newChat.chatInput.agentRelocation.titleLocal'),
-          description: t(relocationKeepsNativeHistory({
+          description: t(relocationDescriptionKey({
             fromAgent: relocationSourceAgent,
             toAgent: targetAgent,
             fromAgentDeviceId: agentDeviceId,
             toAgentDeviceId: target?.deviceId,
-          })
-            ? 'newChat.chatInput.agentRelocation.descriptionNativeHistory'
-            : 'newChat.chatInput.agentRelocation.description'),
+          })),
           confirmText: t('newChat.chatInput.agentRelocation.confirm'),
           cancelText: t('newChat.chatInput.agentRelocation.cancel'),
           dontShowAgainLabel: t('newChat.chatInput.agentSwitch.confirmation.dontShowAgain'),

@@ -56,18 +56,23 @@ export async function confirmAgentSwitchRisk({
 }
 
 /**
- * 手动换电脑时能否优先接续原生记录(provider-groups.md §6.2):跨引擎和分享中转只能走交接摘要。
- * 只决定确认文案;实际能否恢复仍由 sessionAgentSwitchHandler 判定,失败时回退摘要。
+ * 手动换电脑确认弹窗的说明文案 key(provider-groups.md §6.2):同引擎且来源、目标都不是分享时优先接续
+ * 原生记录;跨引擎和分享中转只能走交接摘要。只决定文案;实际能否恢复仍由 sessionAgentSwitchHandler
+ * 判定,失败时回退摘要。
  */
-export function relocationKeepsNativeHistory(input: {
+export function relocationDescriptionKey(input: {
   fromAgent: string | null | undefined;
   toAgent: string;
   fromAgentDeviceId: string | null | undefined;
   toAgentDeviceId: string | null | undefined;
-}): boolean {
-  return input.fromAgent === input.toAgent
-    && !isProviderShareAgentDeviceId(input.fromAgentDeviceId)
-    && !isProviderShareAgentDeviceId(input.toAgentDeviceId);
+}) {
+  const keepsNativeHistory =
+    input.fromAgent === input.toAgent &&
+    !isProviderShareAgentDeviceId(input.fromAgentDeviceId) &&
+    !isProviderShareAgentDeviceId(input.toAgentDeviceId);
+  return keepsNativeHistory
+    ? ('newChat.chatInput.agentRelocation.descriptionNativeHistory' as const)
+    : ('newChat.chatInput.agentRelocation.description' as const);
 }
 
 export interface AgentSwitchResponseFreshness {

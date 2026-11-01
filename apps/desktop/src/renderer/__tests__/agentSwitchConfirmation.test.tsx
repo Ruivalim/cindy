@@ -1,13 +1,15 @@
 // @vitest-environment jsdom
 
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ConfirmDialogProvider, useConfirmDialog } from '@/components/ui/confirm-dialog-provider';
 import {
   AGENT_SWITCH_CONFIRMATION_OVERRIDE_KEY,
   confirmAgentSwitchRisk,
-  relocationKeepsNativeHistory,
+  relocationDescriptionKey,
 } from '@/components/new-chat/agentSwitchConfirmation';
 
 vi.mock('react-i18next', () => ({
@@ -112,16 +114,32 @@ describe('Agent switch confirmation', () => {
 });
 
 // #7573 后同引擎换电脑会复制完整原生记录;跨引擎、分享来源仍只能走摘要,文案不能说成记录已带过去。
-describe('relocationKeepsNativeHistory', () => {
-  const base = { fromAgent: 'claude-code', toAgent: 'claude-code', fromAgentDeviceId: null, toAgentDeviceId: 'mini' };
+// ChatInput 体量过大无法在 unit 里挂载;判定与文案 key 收在此函数,这里连同真实 locale 文本一起断言。
+describe('relocationDescriptionKey', () => {
+  const base = {
+    fromAgent: 'claude-code',
+    toAgent: 'claude-code',
+    fromAgentDeviceId: null,
+    toAgentDeviceId: 'mini',
+  };
+  const locale = (name: string) =>
+    JSON.parse(readFileSync(resolve(__dirname, `../i18n/locales/${name}/common.json`), 'utf8'))
+      .newChat.chatInput.agentRelocation;
+  const NATIVE = 'newChat.chatInput.agentRelocation.descriptionNativeHistory';
+  const SUMMARY = 'newChat.chatInput.agentRelocation.description';
 
   it.each([
-    ['same engine between own computers', {}, true],
-    ['back to this computer', { fromAgentDeviceId: 'mini', toAgentDeviceId: null }, true],
-    ['different engine', { toAgent: 'codex' }, false],
-    ['shared target', { toAgentDeviceId: 'share:abc' }, false],
-    ['shared source', { fromAgentDeviceId: 'share:abc' }, false],
+    ['same engine between own computers', {}, NATIVE],
+    ['back to this computer', { fromAgentDeviceId: 'mini', toAgentDeviceId: null }, NATIVE],
+    ['different engine', { toAgent: 'codex' }, SUMMARY],
+    ['shared target', { toAgentDeviceId: 'share:abc' }, SUMMARY],
+    ['shared source', { fromAgentDeviceId: 'share:abc' }, SUMMARY],
   ])('%s', (_name, override, expected) => {
-    expect(relocationKeepsNativeHistory({ ...base, ...override })).toBe(expected);
+    expect(relocationDescriptionKey({ ...base, ...override })).toBe(expected);
+  });
+
+  it('keys resolve to the native-history and summary-only copy', () => {
+    expect(locale('zh-CN').descriptionNativeHistory).toContain('完整对话记录会复制过去');
+    expect(locale('zh-CN').description).toContain('带不过来');
   });
 });

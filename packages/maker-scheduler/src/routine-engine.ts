@@ -736,8 +736,16 @@ export class RoutineEngine {
             : result.skipped ? "skipped" : "success",
         finishedAt,
       });
-      if (result.disableRoutine && !aborted && !result.error) {
-        const routine = state.routines.find(row => row.id === run.routineId && row.revision === claimed.routine.revision);
+      // A one-shot routine is finished only when nothing is left to fire: every trigger has
+      // fired (its next time is consumed), no other run is queued, and the delivery did not fail.
+      const oneShotFinished = run.status === "success"
+        && result.delivery?.status !== "failed"
+        && !Object.keys(state.next).some(key => key.startsWith(`${run.routineId}:`))
+        && !state.runs.some(other => other.routineId === run.routineId && other.status === "queued");
+      const onlyOneShots = (routine: Routine) => routine.triggers.length > 0 && routine.triggers.every(trigger => trigger.kind === "once");
+      const routine = state.routines.find(row => row.id === run.routineId && row.revision === claimed.routine.revision);
+      const disable = result.disableRoutine || (oneShotFinished && !!routine && onlyOneShots(routine));
+      if (disable && !aborted && !result.error) {
         // A late result must not overwrite a newer user edit or cancel itself.
         if (routine) {
           routine.enabled = false;

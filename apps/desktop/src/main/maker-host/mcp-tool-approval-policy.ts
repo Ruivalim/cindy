@@ -13,7 +13,7 @@
  * 判定顺序（从最窄到最宽）：
  *   1. READ_ONLY_MCP_TOOLS —— 精确到工具的只读发现入口，server 未整体可信也放行
  *   2. 第一方插件 ghost_call —— cindy-art 作图/视频、cindy-contacts 只读查询静默；
- *                              其它插件与其它内层工具继续走会话审批
+ *                              cindy-contacts 其它调用逐次审批；其它插件继续走会话审批
  *   3. 敏感聚合调用（含 browser recipe）—— 每次进入现有会话审批
  *   4. TRUSTED_MCP_SERVERS —— 已 review 的第一方 server，其余调用静默
  *   5. 其余                —— 进入会话审批（第三方 server、cindy_ssh、其它 ghost_call…）
@@ -136,7 +136,7 @@ function readJsonObject(value: unknown): Record<string, unknown> | undefined {
  * 第一方插件可静默执行的内层工具，键为 ghost_id。
  * - cindy-art：作图/改图/视频，风险是额度而非越权，用户点名作图即授权。
  * - cindy-contacts：本机通讯录的只读查询（不写库、不出境），沿用原内置智能通讯录
- *   查人免确认的体验；写入、合并、删除、导入与 groups 的写动作仍逐次走会话审批。
+ *   查人免确认的体验；写入、合并、删除、导入与 groups 的写动作逐次审批（见下方）。
  */
 const FIRST_PARTY_GHOST_AUTO_TOOLS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
   ['cindy-art', new Set(['gen_image', 'edit_image', 'gen_video', 'edit_video'])],
@@ -144,22 +144,22 @@ const FIRST_PARTY_GHOST_AUTO_TOOLS: ReadonlyMap<string, ReadonlySet<string>> = n
 ]);
 
 /**
- * ghost_call 是聚合入口，默认逐次确认；只对上表的第一方内层工具静默，
- * Auto-review 下再弹卡会把常规作图、查人变成手动授权。
- * 读不出 ghost_id / tool 时 fail closed，其它插件不受影响。
+ * ghost_call 是聚合入口：上表的第一方内层工具静默，Auto-review 下再弹卡会把常规作图、
+ * 查人变成手动授权。cindy-contacts 的其它调用（写入、合并、删除、导入）逐次审批，
+ * 不允许一次「本会话允许」覆盖后续危险操作——与原内置通讯录的审批保证一致。
+ * 读不出 ghost_id / tool 时返回 null，按默认策略处理，其它插件不受影响。
  */
-function canAutoApproveFirstPartyGhostCall(context: McpToolApprovalContext): boolean {
-  if (context.serverName !== 'cindy') return false;
-  if (context.toolName !== 'ghost_call' && context.toolName !== undefined) return false;
+function firstPartyGhostCallPolicy(context: McpToolApprovalContext): McpToolApprovalPolicy | null {
+  if (context.serverName !== 'cindy') return null;
+  if (context.toolName !== 'ghost_call' && context.toolName !== undefined) return null;
   const params = readJsonObject(context.toolParams);
-  if (!params) return false;
+  if (!params) return null;
   const ghostId = typeof params.ghost_id === 'string' ? params.ghost_id.trim() : '';
   const tool = typeof params.tool === 'string' ? params.tool.trim() : '';
-  if (FIRST_PARTY_GHOST_AUTO_TOOLS.get(ghostId)?.has(tool)) return true;
-  if (ghostId === 'cindy-contacts' && tool === 'groups') {
-    return readJsonObject(params.args)?.action === 'list';
-  }
-  return false;
+  if (FIRST_PARTY_GHOST_AUTO_TOOLS.get(ghostId)?.has(tool)) return 'auto-approve';
+  if (ghostId !== 'cindy-contacts') return null;
+  if (tool === 'groups' && readJsonObject(params.args)?.action === 'list') return 'auto-approve';
+  return 'prompt-each-time';
 }
 
 /** cindy_scheduler 里接受 `device` 的写工具（与 packages/lizi-mcps/src/scheduler 的 writeDeviceShape 一致）。 */
@@ -242,9 +242,8 @@ export function getDesktopMcpToolApprovalPolicy(
   // sources/preview/start share one native tool identity. Never persist a grant
   // from discovery that could bypass the policy callback for a later import.
   if (serverName === 'companion_import') return 'prompt-each-time';
-  if (canAutoApproveFirstPartyGhostCall(context)) {
-    return 'auto-approve';
-  }
+  const ghostPolicy = firstPartyGhostCallPolicy(context);
+  if (ghostPolicy) return ghostPolicy;
   // Rebinding a task's workspace delegates its execution root; publishing a Skill
   // uploads local files under the signed-in account. Review each action instead
   // of reusing the trusted helper server shortcut/grant. Session modes still apply.

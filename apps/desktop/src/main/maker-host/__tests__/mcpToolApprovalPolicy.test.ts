@@ -172,7 +172,7 @@ describe('desktop MCP approval policy', () => {
   });
 
   // 内置智能通讯录迁为 cindy-contacts 插件后，查人仍免确认（原 cindy_contacts 的只读
-  // 体验）；写入、合并、删除、导入与分组写动作照常逐次审批。
+  // 体验）；写入、合并、删除、导入与分组写动作逐次审批，一次「本会话允许」不能覆盖它们。
   it('auto-approves only read-only cindy-contacts plugin tools', () => {
     const call = (tool: string, args: unknown = {}) =>
       getDesktopMcpToolApprovalPolicy({
@@ -186,11 +186,16 @@ describe('desktop MCP approval policy', () => {
     expect(call('groups', { action: 'list' })).toBe('auto-approve');
     expect(call('groups', JSON.stringify({ action: 'list' }))).toBe('auto-approve');
     for (const action of ['create', 'rename', 'delete', undefined]) {
-      expect(call('groups', { action, name: 'x' })).toBe('prompt');
+      expect(call('groups', { action, name: 'x' })).toBe('prompt-each-time');
     }
     for (const tool of ['save', 'save_many', 'record', 'log_event', 'relate', 'organize', 'merge', 'delete', 'import_macos', 'maintenance']) {
-      expect(call(tool), `${tool} must not be auto-approved`).toBe('prompt');
+      expect(call(tool), `${tool} must not be auto-approved`).toBe('prompt-each-time');
     }
+    // Codex elicitation 可能省略外层 toolName，仍按内层 ghost_id 判定。
+    expect(getDesktopMcpToolApprovalPolicy({
+      serverName: 'cindy',
+      toolParams: { ghost_id: 'cindy-contacts', tool: 'delete', args: { id: 'c1', confirm: true } },
+    })).toBe('prompt-each-time');
   });
 
   // cindy_docs 是渐进披露 server:对外只有 list_tools / call_tool。read_sheet 与

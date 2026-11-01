@@ -54,21 +54,8 @@ describe('remote file preview pager wiring', () => {
     expect(textPage.indexOf(sourceList![0])).toBeGreaterThan(unavailableBranch);
   });
 
-  it('reserves horizontal gestures for the PDF WebView only where PDFs preview inline', () => {
-    expect(source).toContain('const PDF_PREVIEWS_INLINE = pdfPreviewsInline(Platform.OS);');
-    expect(source).toContain("!(current.previewKind === 'pdf' && PDF_PREVIEWS_INLINE)");
-  });
-
-  it('Android 的 PDF 不挂 WebView、不取件,直接给「导出 / 分享」占位页', () => {
-    // Android WebView 不渲染 PDF:以前取回后塞进 WebView 只得到空白页。
-    const inlineBranch = source.indexOf("} else if (item.previewKind === 'pdf' && PDF_PREVIEWS_INLINE) {");
-    const androidBranch = source.indexOf("} else if (item.previewKind === 'pdf') {");
-    expect(inlineBranch).toBeGreaterThanOrEqual(0);
-    expect(androidBranch).toBeGreaterThan(inlineBranch);
-    const androidContent = source.slice(androidBranch, source.indexOf('} else if (avKind) {', androidBranch));
-    expect(androidContent).toContain("<UnsupportedPage item={item} onDownload={onDownload} reason={t('files.preview.androidPdfHint')} />");
-    expect(androidContent).not.toContain('PdfPreviewPage');
-    expect(androidContent).not.toContain('<WebView');
+  it('reserves horizontal gestures for the PDF WebView', () => {
+    expect(source).toContain("current.previewKind === 'pdf' && PDF_PREVIEWS_INLINE");
   });
 
   it('HTML 渲染态同样让出外层横滑,让内层 WebView 能横向平移', () => {

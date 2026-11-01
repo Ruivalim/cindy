@@ -1586,7 +1586,7 @@ function UnsupportedPage({
       </View>
       <Text style={styles.bigName}>{item.name}</Text>
       <Text style={styles.bigMeta}>{item.metaLabel}</Text>
-      <Text style={styles.hintText}>{reason}</Text>
+      <Text style={styles.reasonText}>{reason}</Text>
       {onRetry ? <MainWindowActionButton action={{ label: t('files.preview.retry'), onPress: onRetry }} /> : <Pressable
         accessibilityLabel={t('files.preview.a11yExportShareFile')}
         onPress={onDownload}
@@ -1746,6 +1746,13 @@ const makeStyles = (colors: ThemeColors) => {
     bigMeta: { color: colors.textSecondary, fontSize: typeScale.footnote, lineHeight: lineHeight.caption },
     hintText: {
       color: colors.textTertiary,
+      fontSize: typeScale.footnote,
+      lineHeight: lineHeight.caption,
+      textAlign: 'center',
+    },
+    // 占位页的原因与操作指引是成句的说明(设计指南 §3「说明、提示、报错」):textSecondary。
+    reasonText: {
+      color: colors.textSecondary,
       fontSize: typeScale.footnote,
       lineHeight: lineHeight.caption,
       textAlign: 'center',

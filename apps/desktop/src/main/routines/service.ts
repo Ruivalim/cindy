@@ -2,6 +2,7 @@ import { REMOTE_RESOURCE_CHANGED_CHANNEL } from '@cindy/device-link';
 import { tapWindowBroadcast, getSafeDataOwnerPushStamp } from '../device-link/broadcast-tap.js';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
+import dayjs from 'dayjs';
 import { app, BrowserWindow, ipcMain } from 'electron';
 import {
   RoutineEngine,
@@ -369,9 +370,16 @@ async function execute(scope: string, routine: Routine, run: RoutineRun, signal:
     // Imported output is redacted by its existing finish path before selected delivery.
     if (!imported && (routine.delivery || !routine.builtin) && completed.status === 'success')
       await deliver(completed.resultText ?? '', lane.sessionId, result.silenced);
+    // A one-shot reminder has no next fire time once delivered, so disable it instead of
+    // leaving it enabled and holding its session. Only when its time has passed: an early
+    // manual run must not cancel a reminder that has not fired yet.
+    const now = dayjs().valueOf();
+    const oneShotDone = completed.status === 'success'
+      && routine.triggers.length > 0
+      && routine.triggers.every(trigger => trigger.kind === 'once' && trigger.at <= now);
     return {
       ...(delivery ? { delivery } : {}),
-      ...(exhausted ? { disableRoutine: true } : {}),
+      ...(exhausted || oneShotDone ? { disableRoutine: true } : {}),
       scheduleRunId: result.runId,
       // 已回收的空壳不回填 sessionId，历史不挂「查看任务」死链；其余照常带回。
       ...(discarded ? {} : { sessionId: lane.sessionId }),

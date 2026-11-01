@@ -1,3 +1,4 @@
+import { usePreviewFocusReturn } from './PreviewChrome';
 import { PreviewHeader, PreviewFooter, PreviewButton } from './PreviewChrome';
 import { previewSourceName } from '@cindy/maker-shared/attachment-preview';
 import { shouldShowOpenPathError } from '../../../shared/openPathResult';
@@ -71,6 +72,7 @@ interface ModelLightboxProps {
 }
 
 export function ModelLightbox({ source, onClose, filename }: ModelLightboxProps) {
+  const restorePreviewFocus = usePreviewFocusReturn();
   const { t } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -215,6 +217,7 @@ export function ModelLightbox({ source, onClose, filename }: ModelLightboxProps)
     // 里既有的 blur 仍保留——点进模型后 model-viewer shadow DOM 的焦点框
     // 要在淡出前先灭掉。
     <FocusScope
+      onUnmountAutoFocus={restorePreviewFocus}
       asChild
       trapped
       loop

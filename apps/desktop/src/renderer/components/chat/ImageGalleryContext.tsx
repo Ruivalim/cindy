@@ -4,6 +4,8 @@
  */
 import { createContext } from 'react';
 import type { AnnotationStroke } from './lightboxAnnotations';
+import type { AttachmentCollectionItem } from './AttachmentCollectionContext';
+import { previewSourceName } from '@cindy/maker-shared/attachment-preview';
 
 /** 会话画廊里的一张图:src 为渲染所用 URL(标注图 = 烧录图)。 */
 export interface GalleryImage {
@@ -22,3 +24,17 @@ export interface GalleryImage {
 
 /** Opening surface collection. Without a provider the viewer shows only its source. */
 export const ImageGalleryContext = createContext<readonly GalleryImage[] | null>(null);
+
+/** Keep the displayed (burned) identity for selection, but edit the original pixels. */
+export function galleryImagePreviewItem(image: GalleryImage, id: string): AttachmentCollectionItem {
+  return {
+    id: image.galleryId ?? id,
+    name: previewSourceName(image.src, 'Image'),
+    source: image.src,
+    kind: 'image',
+    media: true,
+    image: image.annotationSourceUrl
+      ? { src: image.annotationSourceUrl, initialStrokes: image.annotationStrokes, annotationFallbackSrc: image.src }
+      : undefined,
+  };
+}

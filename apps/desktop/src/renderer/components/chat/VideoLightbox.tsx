@@ -1,3 +1,4 @@
+import { usePreviewFocusReturn } from './PreviewChrome';
 import { AttachmentCollectionPreview, useOpeningCollection } from './AttachmentCollection';
 /**
  * VideoLightbox
@@ -61,6 +62,7 @@ function VideoLightboxContent({
   filename,
   kind = 'video',
   initialTime = 0, onClose }: VideoLightboxProps) {
+  const restorePreviewFocus = usePreviewFocusReturn();
   const { t } = useTranslation();
   const Media = kind === 'audio' ? 'audio' : 'video';
   const [isVisible, setIsVisible] = useState(false);
@@ -140,6 +142,7 @@ function VideoLightboxContent({
     // 前的元素(ChatVideoView 键盘路径 = 预览触发器,与 onClose 里的显式
     // 恢复指向同一元素)。
     <FocusScope
+      onUnmountAutoFocus={restorePreviewFocus}
       asChild
       trapped
       loop

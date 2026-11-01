@@ -20,7 +20,7 @@
  * Theme: re-renders when <html class="dark"> toggles, via MutationObserver.
  */
 
-import { memo, useEffect, useId, useRef, useState } from 'react';
+import { memo, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Check, Code2, Copy, Expand, Eye, Pen } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { repairMermaidSource } from '@cindy/maker-shared/mermaid-autofix';
@@ -40,6 +40,7 @@ import {
 interface MarkdownMermaidBlockProps {
   raw: string;
   fullscreen?: boolean;
+  fullscreenFallback?: ReactNode;
   onClose?: () => void;
 }
 
@@ -60,6 +61,7 @@ function isDarkMode(): boolean {
 export const MarkdownMermaidBlock = memo(function MarkdownMermaidBlock({
   raw,
   fullscreen = false,
+  fullscreenFallback,
   onClose,
 }: MarkdownMermaidBlockProps) {
   const { t } = useTranslation();
@@ -213,6 +215,8 @@ export const MarkdownMermaidBlock = memo(function MarkdownMermaidBlock({
   // Source-only view: explicitly toggled, OR no SVG ever rendered AND we have
   // a hard error (not just streaming-partial).
   const showSourceView = showSource || (svg == null && error != null);
+
+  if (fullscreen && !svg && fullscreenFallback) return fullscreenFallback;
 
   if (fullscreen && svg)
     return (

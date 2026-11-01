@@ -15,6 +15,9 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { i18n } from '@/i18n';
+import { ChatSessionFileProvider } from '@/components/chat/ChatSessionFileContext';
+import { AttachmentCollectionPreview } from '@/components/chat/AttachmentCollection';
+import { galleryImagePreviewItem } from '@/components/chat/ImageGalleryContext';
 import { ImageLightbox } from '@/components/chat/ImageLightbox';
 import { ConfirmDialogProvider } from '@/components/ui/confirm-dialog-provider';
 
@@ -414,4 +417,25 @@ describe('ImageLightbox annotate mode', () => {
     });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+});
+
+// #8356 r4436061975: selecting a persisted annotation from a mixed collection must
+// load the unburned source and allow removing old strokes. Previous tests opened it directly.
+it('keeps persisted strokes editable after switching collection items', () => {
+  const burned = 'cindy-media://blobs/burned.png';
+  render(<ChatSessionFileProvider value={{ sessionId: 'task', workingDir: '/repo', origin: { kind: 'local' } }}><AttachmentCollectionPreview
+    items={[
+      galleryImagePreviewItem({ src: burned, annotationSourceUrl: SRC, annotationStrokes: [{ points: [{ x: 0.2, y: 0.2 }, { x: 0.4, y: 0.4 }] }] }, 'annotated'),
+      galleryImagePreviewItem({ src: 'cindy-media://blobs/other.png' }, 'other'),
+    ]}
+    source="cindy-media://blobs/other.png" onClose={vi.fn()}
+  /></ChatSessionFileProvider>);
+  fireEvent.click(screen.getByRole('button', { name: label('attachmentPreview.previous') }));
+  expect(lightboxImage().getAttribute('src')).toBe(SRC);
+  loadImage(lightboxImage());
+  openAnnotate();
+  expect(committedPaths('stroke')).toHaveLength(1);
+  pressKey({ key: 'z', ctrlKey: true });
+  expect(committedPaths('stroke')).toHaveLength(0);
+  expect(lightboxImage().getAttribute('src')).toBe(SRC);
 });

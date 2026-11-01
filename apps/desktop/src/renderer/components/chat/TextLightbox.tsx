@@ -1,3 +1,4 @@
+import { usePreviewFocusReturn } from './PreviewChrome';
 import { MarkdownMermaidBlock } from './MarkdownMermaidBlock';
 import { openHtmlFileByPreference } from './useOpenWithMenu';
 import { DocSearchBar } from '@/features/cc-agent/workdir-browse/DocSearchBar';
@@ -114,7 +115,13 @@ export function TextLightbox(props: TextLightboxProps) {
   const items = useOpeningCollection(props.filePath);
   if (items)
     return (
-      <AttachmentCollectionPreview items={items} source={props.filePath} onClose={props.onClose} />
+      <AttachmentCollectionPreview
+        items={items}
+        source={props.filePath}
+        initialLine={props.initialLine}
+        triggerRef={props.triggerRef}
+        onClose={props.onClose}
+      />
     );
   const kind = attachmentPreviewKind(props.filePath);
   return kind === 'text' ||
@@ -142,6 +149,7 @@ export function TextLightbox(props: TextLightboxProps) {
 
 function TextDocumentLightbox({ filePath, fileName, initialLine, triggerRef, onClose }: TextLightboxProps) {
   const { t } = useTranslation();
+  const restorePreviewFocus = usePreviewFocusReturn();
   const collection = useContext(ActivePreviewCollection);
   const [isVisible, setIsVisible] = useState(false);
   const [loadState, setLoadState] = useState<LoadState>({ phase: 'loading' });
@@ -456,9 +464,6 @@ function TextDocumentLightbox({ filePath, fileName, initialLine, triggerRef, onC
   const oversizeSizeText = showOversize ? formatBytes(loadState.size) : '';
   const oversizeLimitMb = showOversize ? loadState.limitMb : OVERSIZE_LIMIT_MB;
 
-  if (/\.(mmd|mermaid)$/i.test(filePath) && loadState.phase === 'ready' && !showSource)
-    return <MarkdownMermaidBlock raw={loadState.content} fullscreen onClose={handleClose} />;
-
   const overlay = (
     <div
       data-text-lightbox-overlay
@@ -732,10 +737,13 @@ function TextDocumentLightbox({ filePath, fileName, initialLine, triggerRef, onC
     </div>
   );
 
-  return createPortal(
-    <FocusScope trapped loop asChild>
+  const documentView = createPortal(
+    <FocusScope onUnmountAutoFocus={restorePreviewFocus} trapped loop asChild>
       {overlay}
     </FocusScope>, document.body);
+  if (/\.(mmd|mermaid)$/i.test(filePath) && loadState.phase === 'ready' && !showSource)
+    return <MarkdownMermaidBlock raw={loadState.content} fullscreen fullscreenFallback={documentView} onClose={handleClose} />;
+  return documentView;
 }
 
 export const __test_internals = {

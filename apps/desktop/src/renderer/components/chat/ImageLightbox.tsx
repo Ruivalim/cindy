@@ -1,3 +1,4 @@
+import { usePreviewFocusReturn } from './PreviewChrome';
 /**
  * ImageLightbox
  * ---------------------------------------------------------------------------
@@ -339,6 +340,7 @@ function ImageLightboxContent({
 }: ImageLightboxProps) {
   const { t } = useTranslation();
   // 会话全量图片列表(MessageStream 下发);非聊天场景无 Provider 时为 null。
+  const restorePreviewFocus = usePreviewFocusReturn();
   const sessionImages = useContext(ImageGalleryContext);
   // 当前会话 id(发送到对话用):prop 优先(文件浏览器等 provider 外宿主),
   // 否则取聊天流 context;都没有则为 undefined → 不显示该动作。
@@ -1416,6 +1418,7 @@ function ImageLightboxContent({
     // 的元素(ChatImageView 键盘路径 = 预览触发器,与 onClose 里的显式恢复
     // 指向同一元素)。
     <FocusScope
+      onUnmountAutoFocus={restorePreviewFocus}
       asChild
       trapped
       loop

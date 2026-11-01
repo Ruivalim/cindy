@@ -43,6 +43,7 @@ export interface ResolvedPreviewFile {
 /** The caller authorizes each open. URLs remain transport references, never share payloads. */
 export function RemoteAttachmentPreview(props: {
   name: string;
+  mediaKind?: 'audio' | 'video';
   resolve(signal: AbortSignal): Promise<ResolvedPreviewFile>;
   onClose(): void;
 }) {
@@ -135,6 +136,7 @@ export function RemoteAttachmentPreview(props: {
       visible
       animationType="slide"
       presentationStyle="fullScreen"
+      supportedOrientations={['portrait', 'landscape']}
       onRequestClose={props.onClose}
     >
       <SafeAreaProvider>
@@ -146,10 +148,12 @@ export function RemoteAttachmentPreview(props: {
 
 function RemoteAttachmentBody({
   name,
+  mediaKind,
   resolve,
   onClose,
 }: {
   name: string;
+  mediaKind?: 'audio' | 'video';
   resolve(signal: AbortSignal): Promise<ResolvedPreviewFile>;
   onClose(): void;
 }) {
@@ -168,7 +172,7 @@ function RemoteAttachmentBody({
   const [sharing, setSharing] = useState(false);
   const alive = useRef(true);
   const shareWork = useRef<Promise<void> | null>(null);
-  const kind = attachmentPreviewKind(name, file?.mimeType);
+  const kind = mediaKind ?? attachmentPreviewKind(name, file?.mimeType);
   useEffect(() => {
     alive.current = true;
     const abort = new AbortController();

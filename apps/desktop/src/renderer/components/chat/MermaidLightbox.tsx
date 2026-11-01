@@ -1,3 +1,4 @@
+import { usePreviewFocusReturn } from './PreviewChrome';
 import { PlaintextEditor } from '@/components/markdown/PlaintextEditor';
 /**
  * MermaidLightbox
@@ -52,6 +53,7 @@ interface MermaidLightboxProps {
 }
 
 export function MermaidLightbox({ svg, source, onAnnotate, onClose }: MermaidLightboxProps) {
+  const restorePreviewFocus = usePreviewFocusReturn();
   const { t } = useTranslation();
   const [showSource, setShowSource] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -244,7 +246,7 @@ export function MermaidLightbox({ svg, source, onAnnotate, onClose }: MermaidLig
   }
 
   const overlay = (
-    <FocusScope trapped loop asChild>
+    <FocusScope onUnmountAutoFocus={restorePreviewFocus} trapped loop asChild>
       <div
       data-mermaid-lightbox-overlay
       data-lightbox-layer

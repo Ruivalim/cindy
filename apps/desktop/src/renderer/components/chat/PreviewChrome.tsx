@@ -11,6 +11,11 @@ import {
 import { cn } from '@/lib/utils';
 import { ActivePreviewCollection } from './AttachmentCollectionContext';
 
+/** Scope teardown runs after closing/switching; don't restore into a removed viewer. */
+export function usePreviewFocusReturn() {
+  return useContext(ActivePreviewCollection)?.restoreFocus;
+}
+
 /** Shared preview chrome. Content renderers retain their own lifecycle and permissions. */
 export function PreviewHeader({
   name,

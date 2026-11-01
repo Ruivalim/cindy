@@ -5,10 +5,10 @@ import type { ImageLightbox } from './ImageLightbox';
 export type AttachmentCollectionItem = PreviewItem & {
   /** Media URLs are already resolved by the opening surface; files retain host paths. */
   media?: boolean;
-  image?: Pick<
+  image?: Partial<Pick<
     ComponentProps<typeof ImageLightbox>,
-    'annotationEdit' | 'initialStrokes' | 'annotationFallbackSrc'
-  >;
+    'src' | 'annotationEdit' | 'initialStrokes' | 'annotationFallbackSrc'
+  >>;
 };
 
 export const AttachmentCollectionContext = createContext<
@@ -19,6 +19,7 @@ export const ActivePreviewCollection = createContext<{
   index: number;
   select(index: number): void;
   beforeLeave: { current: ((leave: () => void) => void) | null };
+  restoreFocus?(event: Event): void;
 } | null>(null);
 
 export function useOpeningCollection(source: string) {

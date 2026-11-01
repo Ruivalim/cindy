@@ -1,3 +1,4 @@
+import { resolveAttachmentPreviewSource } from './messagePayload';
 import {
   PreviewHeader,
   PreviewFooter,
@@ -7778,26 +7779,13 @@ function MessagePayloadModal({
     ((payload.kind === "file" && payload.sourcePath) ||
       (payload.kind === "media" && !isLightboxMediaKind(payload.media.kind)))
   ) {
-    const source =
-      payload.kind === "file"
-        ? payload.sourcePath!
-        : payload.kind === "media"
-          ? payload.media.url
-          : "";
-    const url = /^(?:[a-z][a-z0-9+.-]*):/i.test(source)
-      ? source
-      : `xdt-file://open?path=${encodeURIComponent(source)}`;
     return (
       <RemoteAttachmentPreview
-        key={source}
+        key={payload.kind === "file" ? payload.sourcePath : payload.media.url}
         name={payload.title}
+        mediaKind={payload.kind === 'media' && payload.media.kind === 'audio' ? 'audio' : undefined}
         onClose={onClose}
-        resolve={(signal) =>
-          onResolveRemoteMedia(
-            { kind: "file", url, previewable: false },
-            { front: true, signal },
-          )
-        }
+        resolve={(signal) => resolveAttachmentPreviewSource(payload, onResolveRemoteMedia, signal)}
       />
     );
   }

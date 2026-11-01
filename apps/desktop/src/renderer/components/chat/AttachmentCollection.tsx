@@ -27,11 +27,15 @@ export function AttachmentCollectionPreview({
   source,
   onClose,
   initial,
+  initialLine,
+  triggerRef,
 }: {
   items: readonly AttachmentCollectionItem[];
   source: string;
   onClose(): void;
   initial?: React.ReactNode;
+  initialLine?: number;
+  triggerRef?: React.RefObject<HTMLElement | null>;
 }) {
   const [items] = useState(() => [...openingItems]);
   const [start] = useState(() =>
@@ -45,6 +49,17 @@ export function AttachmentCollectionPreview({
   const [origin] = useState(fileContext);
   const beforeLeave = useRef<((leave: () => void) => void) | null>(null);
   const item = items[index]!;
+  const closing = useRef(false);
+  const close = () => {
+    closing.current = true;
+    onClose();
+  };
+  const restoreFocus = (event: Event) => {
+    if (!triggerRef) return;
+    event.preventDefault();
+    const trigger = triggerRef.current;
+    if (closing.current && trigger && document.contains(trigger)) trigger.focus({ preventScroll: true });
+  };
   const select = (next: number) => {
     if (next < 0 || next >= items.length || next === index) return;
     const leave = () => {
@@ -73,12 +88,12 @@ export function AttachmentCollectionPreview({
     <ChatSessionFileProvider value={origin}>
       <AttachmentCollectionContext.Provider value={null}>
         <ImageGalleryContext.Provider value={null}>
-          <ActivePreviewCollection.Provider value={{ items, index, select, beforeLeave }}>
+          <ActivePreviewCollection.Provider value={{ items, index, select, beforeLeave, restoreFocus }}>
             <Suspense
               key={item.id}
               fallback={createPortal(
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[var(--surface)]">
-                  <PreviewHeader name={item.name} onClose={onClose} />
+                  <PreviewHeader name={item.name} onClose={close} />
                   <Spinner />
                 </div>,
                 document.body,
@@ -91,17 +106,22 @@ export function AttachmentCollectionPreview({
                   src={item.source}
                   filename={item.name}
                   {...item.image}
-                  onClose={onClose}
+                  onClose={close}
                 />
               ) : item.media && (item.kind === 'video' || item.kind === 'audio') ? (
                 <VideoLightbox
                   src={item.source}
                   filename={item.name}
                   kind={item.kind}
-                  onClose={onClose}
+                  onClose={close}
                 />
               ) : (
-                <TextLightbox filePath={item.source} fileName={item.name} onClose={onClose} />
+                <TextLightbox
+                  filePath={item.source}
+                  fileName={item.name}
+                  initialLine={index === start ? initialLine : undefined}
+                  onClose={close}
+                />
               )}
             </Suspense>
           </ActivePreviewCollection.Provider>

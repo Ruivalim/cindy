@@ -21,13 +21,14 @@ const assets=${scriptValue(MOBILE_PDF_BINARY_ASSETS)};
 class LocalBinaryDataFactory{async fetch({kind,filename}){const value=assets[kind]?.[filename];if(!value)throw new Error('Missing bundled PDF resource');return decode(value);}}
 let pdf,task,passwordReply,zoom=1,current=1,generation=0,searchGeneration=0;
 const pages=document.getElementById('pages'), entries=[],visible=new Set();
+function fittedWidth(ratio){return Math.min(Math.max(1,innerWidth-24),Math.max(1,innerHeight-24)/ratio);}
 function status(){send({type:'status',page:current,pages:pdf?.numPages||0,zoom});}
 async function paint(entry){
  if(entry.rendering||entry.rendered||!pdf)return;
  const epoch=generation;entry.rendering=true;
  try{
   const page=await pdf.getPage(entry.number);if(epoch!==generation)return;
-  const natural=page.getViewport({scale:1});entry.ratio=natural.height/natural.width;const scale=Math.max(0.1,(innerWidth-24)/natural.width)*zoom;
+  const natural=page.getViewport({scale:1});entry.ratio=natural.height/natural.width;const scale=fittedWidth(entry.ratio)/natural.width*zoom;
   const viewport=page.getViewport({scale});entry.element.style.width=viewport.width+'px';entry.element.style.height=viewport.height+'px';
   const ratio=Math.min(devicePixelRatio||1,2,Math.sqrt(4000000/(viewport.width*viewport.height)));
   const canvas=document.createElement('canvas');canvas.width=Math.ceil(viewport.width*ratio);canvas.height=Math.ceil(viewport.height*ratio);entry.element.replaceChildren(canvas);
@@ -41,7 +42,7 @@ async function paint(entry){
  finally{entry.rendering=false;if(epoch!==generation&&visible.has(entry))paint(entry);}
 }
 const observer=new IntersectionObserver(changes=>{for(const change of changes){const entry=entries[Number(change.target.dataset.page)-1];if(!entry)continue;if(change.isIntersecting){visible.add(entry);paint(entry);}else{visible.delete(entry);entry.task?.cancel();entry.element.replaceChildren();entry.rendered=false;}}},{rootMargin:'400px 0px'});
-function redraw(){generation++;for(const entry of entries){entry.task?.cancel();entry.rendered=false;entry.element.replaceChildren();entry.element.style.width=(innerWidth-24)*zoom+'px';entry.element.style.height=(innerWidth-24)*zoom*entry.ratio+'px';}for(const entry of visible)paint(entry);status();}
+function redraw(){generation++;for(const entry of entries){entry.task?.cancel();entry.rendered=false;entry.element.replaceChildren();entry.element.style.width=fittedWidth(entry.ratio)*zoom+'px';entry.element.style.height=fittedWidth(entry.ratio)*zoom*entry.ratio+'px';}for(const entry of visible)paint(entry);status();}
 function go(page){current=Math.max(1,Math.min(pdf.numPages,page));entries[current-1]?.element.scrollIntoView();status();}
 window.__cindyPdfCommand=async function(command){
  if(command.type==='password'){passwordReply?.(command.value);return;}
@@ -58,7 +59,7 @@ let scrollFrame;addEventListener('scroll',()=>{if(scrollFrame)return;scrollFrame
 addEventListener('resize',redraw);
 task=pdfjsLib.getDocument({data:decode(${scriptValue(base64)}),BinaryDataFactory:LocalBinaryDataFactory,useWorkerFetch:false,isEvalSupported:false,useWasm:false,isImageDecoderSupported:false,enableXfa:false,canvasMaxAreaInBytes:16000000});
 task.onPassword=(update,reason)=>{passwordReply=update;send({type:'password',incorrect:reason===2});};
-task.promise.then(async document=>{pdf=document;const first=await pdf.getPage(1),view=first.getViewport({scale:1}),ratio=view.height/view.width;for(let number=1;number<=pdf.numPages;number++){const element=documentOwner.createElement('section');element.className='page';element.dataset.page=number;element.style.width=(innerWidth-24)+'px';element.style.height=(innerWidth-24)*ratio+'px';const entry={number,element,ratio,rendering:false,rendered:false};entries.push(entry);pages.append(element);observer.observe(element);}status();}).catch(()=>send({type:'error'}));
+task.promise.then(async document=>{pdf=document;const first=await pdf.getPage(1),view=first.getViewport({scale:1}),ratio=view.height/view.width;for(let number=1;number<=pdf.numPages;number++){const element=documentOwner.createElement('section');element.className='page';element.dataset.page=number;element.style.width=fittedWidth(ratio)+'px';element.style.height=fittedWidth(ratio)*ratio+'px';const entry={number,element,ratio,rendering:false,rendered:false};entries.push(entry);pages.append(element);observer.observe(element);}status();}).catch(()=>send({type:'error'}));
 const documentOwner=window.document;
 addEventListener('pagehide',()=>{searchGeneration++;generation++;observer.disconnect();task?.destroy();});
 </script></body></html>`;

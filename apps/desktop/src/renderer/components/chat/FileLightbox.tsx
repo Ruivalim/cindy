@@ -1,3 +1,4 @@
+import { usePreviewFocusReturn } from './PreviewChrome';
 import { ActivePreviewCollection } from './AttachmentCollectionContext';
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -35,6 +36,7 @@ export function FileLightbox({
   onClose(): void;
 }) {
   const { t } = useTranslation();
+  const restorePreviewFocus = usePreviewFocusReturn();
   const collection = useContext(ActivePreviewCollection);
   const ctx = useChatSessionFile();
   const remote = isRemoteFileOrigin(ctx.origin) ? ctx.origin : null;
@@ -116,6 +118,7 @@ export function FileLightbox({
     );
   return createPortal(
     <FocusScope
+      onUnmountAutoFocus={restorePreviewFocus}
       trapped
       loop
       asChild

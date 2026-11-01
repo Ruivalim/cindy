@@ -371,7 +371,7 @@ import {
   createGhostCardSpawnIndex,
 } from '@/cindy-brain/ghostCardGallery';
 import { ChatImageView } from './ChatImageView';
-import { ImageGalleryContext, type GalleryImage } from './ImageGalleryContext';
+import { galleryImagePreviewItem, ImageGalleryContext, type GalleryImage } from './ImageGalleryContext';
 import { GhostFulfillmentContext } from './GhostSummonCard';
 import { ChatSessionFileProvider, useChatSessionFileValue } from './ChatSessionFileContext';
 import { toRemoteMediaOrigin } from '@/lib/sessionFileOrigin';
@@ -4113,16 +4113,7 @@ export function MessageStream({
         renderMetadataItems.map((item) => {
           const entries: AttachmentCollectionItem[] = (
             messageImageCollections.get(item.key) ?? []
-          ).map((image, index) => ({
-            id: image.galleryId ?? `${item.key}:image:${index}`,
-            name: previewSourceName(image.src, 'Image'),
-            source: image.src,
-            kind: 'image',
-            media: true,
-            image: image.annotationSourceUrl
-              ? { initialStrokes: image.annotationStrokes, annotationFallbackSrc: image.src }
-              : undefined,
-          }));
+          ).map((image, index) => galleryImagePreviewItem(image, `${item.key}:image:${index}`));
           if (item.type === 'message' && item.message.role === 'user') {
             for (const [index, file] of (item.message.files ?? []).entries())
               entries.push({

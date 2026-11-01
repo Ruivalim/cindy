@@ -45,3 +45,28 @@ Desktop 116 条（媒体原件操作 50、PDF 15、图片标注 13、文本 32�
 ## 补充验收边界
 
 尚未完成 Windows、iPad/Android 平板、横屏/大字/读屏全矩阵、真实跨设备/SSH/Chat Server/插件账号闭环，以及全部格式的损坏/密码/超大文件设备样本。代码路径存在不等于这些场景已验收；这些补充项约束整体发布/结案，不在本 PR 中删除或改列非目标。不得把当前核心通过说成全平台全来源已验收。
+
+
+## PR #8356 审查修复（2026-11-01）
+
+5 条意见均核对为可达的实质回归，并在同一批修复：
+
+- 已标注图片切回时：集合仍以烧录图定位，但使用原图和矢量笔迹编辑；原图读取失败才退回烧录图。回归实际切换集合、撤销旧笔迹并检查原图仍在。
+- 直接音频：HTTPS 和 `data:audio/` 不再送入只接受宿主资源的 resolver；保留音频类型，标题没有扩展名也使用播放器。单测执行生产 resolver，确认直接源不取件，宿主源仍授权并传取消信号。此轮没有在设备上播放直接音频，播放器沿用既有实现；不将 resolver 单测说成音频设备实测。
+- 图表未完成/语法错误：保留文档外壳；测试分别让 Mermaid 停在 parse 和拒绝 parse，Esc / 关闭均能退出。Desktop 实际读取错误 `.mmd`、点关闭并验证焦点返回：[截图](review-mermaid-error.png)。
+- 行号文件引用：集合传入起始行，关闭后由查看器焦点作用域返回原入口，不返回已经卸载的前一个附件。Desktop 当前代码实际滚到第 70 行（scrollTop 1682），切错误图表后关闭，焦点返回成功。
+- PDF 适配：初次读取、缩放复位和尺寸变化统一按可用宽高计算，保留页面比例。iOS 与 Android 的实际混合消息 PDF 横屏查看、放大再适配均完整显示：[iOS](review-ios-landscape.jpg)、[Android](review-android-landscape.jpg)。
+
+最小失败复验：暂时恢复上述错误分支后，Desktop 新增用例 4 个失败、Mobile 4 个失败；恢复修复后 Desktop 56 条 / Mobile 34 条定向回归通过。Desktop / Mobile 类型检查通过。测试卫生通过；设计台账由正式生成器更新。
+
+新增/扩展测试价值：
+
+| 文件 | 最小输入与可观察结果 | 缺口 / tier / 单文件耗时 |
+| --- | --- | --- |
+| `TextLightboxInteraction.test.tsx` | 两文件集合 + 第 3 行引用；切文件后关闭返回按钮；Mermaid pending / invalid 仍可关闭 | 原文本测试只覆盖静态合同和行锚辅助函数；新增真实组件 DOM 生命周期，unit；2.59 秒 |
+| `ImageLightboxAnnotate.test.tsx` | 从另一图切回带旧笔迹的图片，原图显示，撤销后旧笔迹消失 | 原测试仅直接打开单图，补生产集合入口；unit；2.98 秒 |
+| `messagePayload.test.ts` | HTTPS/data 音频直接返回；宿主音频继续 resolver + AbortSignal | 原测试只格式化 payload；补生产来源分派，unit；0.919 秒 |
+| `pdfWebViewHtml.test.ts` | 390×640 和 760×240 的竖版 PDF；完整适配、放大后复位、resize 后重新适配 | 路由/缓存测试不执行 WebView 文档；生产 HTML 在 VM 执行，引擎注入，unit；0.211 秒 |
+| `scripts/__tests__/design-inventory.test.mjs` 的圆角用例 | 独立 JSX 样本含一个 class 和一个内联圆角、一个注释；生产生成器数为 2 | CI 两个失败 job 均因固定旧 ImageLightbox 圆角数量；改为验证统计规则，不固定产品几何数量，integration 定向用例；0.046 秒 |
+
+独立样本替代旧界面圆角计数不修改扫描器、台账口径或测试基线。没有扩展到与本目标无关的功能。

@@ -331,8 +331,8 @@ export function startLocalDiagnostics(): () => void {
           recordUiThreadLag(lagMs);
           if (lagMs >= UI_THREAD_STALL_MS) mobileDebugLog("warn", "lifecycle", "ui thread stall", { lagMs });
         },
-        onUnresponsive: (pendingMs) => {
-          mobileDebugLog("warn", "lifecycle", "ui thread unresponsive", { pendingMs });
+        onUnanswered: (pendingMs) => {
+          mobileDebugLog("warn", "lifecycle", "ui thread ping unanswered", { pendingMs });
         },
       });
     }

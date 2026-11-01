@@ -54,6 +54,20 @@ describe('asynchronous gunzip', () => {
     });
   });
 
+  it('does not put a result back after clear() ran during a slow async decode', async () => {
+    let release!: (text: string) => void;
+    const cache = new InvokeResultCache({
+      gunzipBase64: codec.gunzipBase64,
+      gunzipBase64Async: () => new Promise<string>((resolve) => { release = resolve; }),
+    });
+    const pending = cache.prepare('peer', channel).decode(encoded());
+    cache.clear();
+    release(JSON.stringify(large));
+    await expect(pending).resolves.toEqual({ ok: true, result: large });
+    // Nothing was remembered, so the next request carries no validator for the cleared result.
+    expect(cache.prepare('peer', channel).payload.transfer).toEqual({ gzip: 1 });
+  });
+
   it('does not let a throwing observer lose the result', () => {
     const cache = new InvokeResultCache({ gunzipBase64: codec.gunzipBase64 });
     expect(cache.prepare('peer', channel).decode(encoded(), () => { throw new Error('metrics'); }))

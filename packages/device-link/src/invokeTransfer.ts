@@ -156,11 +156,14 @@ function decodeClock(): number {
 export class InvokeResultCache {
   private readonly entries = new Map<string, CachedResult>();
   private chars = 0;
+  /** Bumped by clear(): a decode that finishes after it must not put its result back. */
+  private epoch = 0;
 
   constructor(private readonly codec: DeviceLinkTransferCodec | undefined) {}
 
   prepare(dst: string, payload: InvokePayload): PreparedInvokeTransfer {
     const key = cacheKey(dst, payload);
+    const epoch = this.epoch;
     // 请求时固定快照：结果回来前即使被淘汰，notModified 仍能还原。
     const cached = key ? this.entries.get(key) : undefined;
     const transfer: InvokeTransferOptions = {};
@@ -169,17 +172,19 @@ export class InvokeResultCache {
     const prepared = transfer.gzip || transfer.ifNoneMatch ? { ...payload, transfer } : payload;
     return {
       payload: prepared,
-      decode: (result, observe) => this.decode(key, cached, result, observe),
+      decode: (result, observe) => this.decode(key, epoch, cached, result, observe),
     };
   }
 
   clear(): void {
     this.entries.clear();
     this.chars = 0;
+    this.epoch += 1;
   }
 
   private decode(
     key: string | null,
+    epoch: number,
     cached: CachedResult | undefined,
     result: InvokeResultPayload,
     observe?: InvokeDecodeObserver,
@@ -205,7 +210,7 @@ export class InvokeResultCache {
       try {
         observe?.({ inflateMs: inflatedAt - startedAt, parseMs: decodeClock() - inflatedAt });
       } catch { /* Diagnostics must never affect delivery. */ }
-      return this.finishDecode(key, transfer, text, value);
+      return this.finishDecode(key, epoch, transfer, text, value);
     };
     if (transfer.notModified) {
       if (!cached || cached.tag !== transfer.tag) return failed(new Error('unexpected notModified'));
@@ -231,16 +236,17 @@ export class InvokeResultCache {
     } catch (err) {
       return failed(err);
     }
-    return this.finishDecode(key, transfer, text, result.result);
+    return this.finishDecode(key, epoch, transfer, text, result.result);
   }
 
   private finishDecode(
     key: string | null,
+    epoch: number,
     transfer: InvokeResultTransfer,
     text: string,
     value: unknown,
   ): InvokeResultPayload {
-    if (key && typeof transfer.tag === 'string' && transfer.tag.length <= MAX_TAG_CHARS) {
+    if (key && epoch === this.epoch && typeof transfer.tag === 'string' && transfer.tag.length <= MAX_TAG_CHARS) {
       this.remember(key, { tag: transfer.tag, text });
     }
     return { ok: true, result: value };

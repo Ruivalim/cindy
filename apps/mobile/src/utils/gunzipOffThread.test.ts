@@ -1,7 +1,7 @@
 import { gzipSync } from 'node:zlib';
 import { describe, expect, it, vi } from 'vitest';
 import { gunzipBase64Worklet } from './gunzipBase64Worklet';
-import { createOffThreadGunzip } from './gunzipOffThread';
+import { createOffThreadGunzip, gzipUncompressedSizeHint } from './gunzipOffThread';
 
 const base64 = (text: string) => gzipSync(Buffer.from(text, 'utf8')).toString('base64');
 const LARGE = base64('{"手机":"回到前台"}'.repeat(100));
@@ -12,6 +12,24 @@ describe('createOffThreadGunzip', () => {
     const gunzip = createOffThreadGunzip({ createSchedule, minBase64Chars: 1_000_000 });
     await expect(gunzip(LARGE, 10_000)).resolves.toContain('回到前台');
     expect(createSchedule).not.toHaveBeenCalled();
+  });
+
+  it('routes by inflated size, so a small repetitive payload still leaves the JS thread', async () => {
+    const small = base64('{"row":"same"}'.repeat(40_000));
+    expect(small.length).toBeLessThan(64 * 1024);
+    expect(gzipUncompressedSizeHint(small)).toBe('{"row":"same"}'.length * 40_000);
+    const decodeOnThread = vi.fn(() => 'wrong');
+    const gunzip = createOffThreadGunzip({
+      decodeOnThread,
+      createSchedule: () => (input, limit, done) => done(gunzipBase64Worklet(input, limit)),
+    });
+    await expect(gunzip(small, 4 * 1024 * 1024)).resolves.toHaveLength('{"row":"same"}'.length * 40_000);
+    expect(decodeOnThread).not.toHaveBeenCalled();
+  });
+
+  it('has no size hint for input that is not a gzip trailer', () => {
+    expect(gzipUncompressedSizeHint('abc')).toBeNull();
+    expect(gzipUncompressedSizeHint('@@@@@@@@@@@@')).toBeNull();
   });
 
   it('runs large results on the runtime and never touches the on-thread decoder', async () => {

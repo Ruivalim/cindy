@@ -4,9 +4,13 @@
  * A ping is stamped when it leaves JS and again when the UI runtime runs it, so the lag excludes
  * the time JS takes to read the reply. A force quit during a hang would never deliver the reply,
  * so a ping still outstanding is reported by the JS tick and flushed before that can happen.
+ *
+ * "Unanswered" is deliberately not "unresponsive": the reply is delivered by a JS callback, so a
+ * JS thread busy for seconds leaves the ping outstanding even though the UI thread ran it at once.
+ * The report therefore says only that no reply arrived; read it with `loopLag` to tell the two apart.
  */
 export const UI_THREAD_STALL_MS = 500;
-export const UI_THREAD_UNRESPONSIVE_MS = 3_000;
+export const UI_THREAD_UNANSWERED_MS = 3_000;
 
 type Ping = (sentAt: number, arrived: (sentAt: number, arrivedAt: number) => void) => void;
 
@@ -14,7 +18,7 @@ export function createUiThreadProbe(options: {
   ping: Ping;
   now?: () => number;
   onLag: (lagMs: number) => void;
-  onUnresponsive: (pendingMs: number) => void;
+  onUnanswered: (pendingMs: number) => void;
 }) {
   const now = options.now ?? Date.now;
   let pendingSince: number | null = null;
@@ -24,9 +28,9 @@ export function createUiThreadProbe(options: {
     sample(): void {
       if (pendingSince !== null) {
         const pendingMs = now() - pendingSince;
-        if (!reported && pendingMs >= UI_THREAD_UNRESPONSIVE_MS) {
+        if (!reported && pendingMs >= UI_THREAD_UNANSWERED_MS) {
           reported = true;
-          options.onUnresponsive(pendingMs);
+          options.onUnanswered(pendingMs);
         }
         return;
       }

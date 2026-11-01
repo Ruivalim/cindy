@@ -85,6 +85,27 @@ describe('lowPriorityReadGate', () => {
     await expect(next).resolves.toBe('next');
   });
 
+  it('rejects a read that waited past the deadline without ever starting it', async () => {
+    vi.useFakeTimers();
+    try {
+      const gate = createLowPriorityReadGate(1, 1_000);
+      const blocker = deferred<void>();
+      void gate.run(null, () => blocker.promise);
+      const stale = vi.fn(async () => 'late');
+      const waiting = gate.run('stale', stale);
+      const caught = expect(waiting).rejects.toMatchObject({ code: 'BACKPRESSURE' });
+      await vi.advanceTimersByTimeAsync(1_000);
+      await caught;
+      blocker.resolve();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(stale).not.toHaveBeenCalled();
+      // The expired key is free again: a new identical read queues and runs normally.
+      await expect(gate.run('stale', async () => 'fresh')).resolves.toBe('fresh');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('refuses instead of growing without bound', async () => {
     const gate = createLowPriorityReadGate(1);
     const blocker = deferred<void>();

@@ -15,6 +15,11 @@ const LOW_PRIORITY_READ_CHANNELS: ReadonlySet<string> = new Set([
 
 export const LOW_PRIORITY_READ_MAX_ACTIVE = 4;
 const MAX_QUEUED = 256;
+/**
+ * How long a read may wait for a slot. InvokeScheduler's own expiry only starts once a task
+ * runs, so without this a backlog of slow reads would keep an expired refresh queued indefinitely.
+ */
+export const LOW_PRIORITY_READ_MAX_WAIT_MS = 15_000;
 
 export function isLowPriorityRead(channel: string): boolean {
   return LOW_PRIORITY_READ_CHANNELS.has(channel);
@@ -23,6 +28,8 @@ export function isLowPriorityRead(channel: string): boolean {
 interface QueuedRead {
   key: string | null;
   task: () => Promise<unknown>;
+  enqueuedAt: number;
+  expiry: ReturnType<typeof setTimeout> | undefined;
   waiters: { resolve(value: unknown): void; reject(reason: unknown): void }[];
 }
 
@@ -37,15 +44,36 @@ export interface LowPriorityReadGate {
   run<T>(key: string | null, task: () => Promise<T>): Promise<T>;
 }
 
-export function createLowPriorityReadGate(maxActive = LOW_PRIORITY_READ_MAX_ACTIVE): LowPriorityReadGate {
+export function createLowPriorityReadGate(
+  maxActive = LOW_PRIORITY_READ_MAX_ACTIVE,
+  maxWaitMs = LOW_PRIORITY_READ_MAX_WAIT_MS,
+  now: () => number = Date.now,
+): LowPriorityReadGate {
   const queue: QueuedRead[] = [];
   const queuedByKey = new Map<string, QueuedRead>();
   let active = 0;
 
+  const expiredError = () => new DeviceLinkError('BACKPRESSURE', 'low-priority read waited too long for a slot');
+  const leaveQueue = (read: QueuedRead) => {
+    clearTimeout(read.expiry);
+    if (read.key !== null && queuedByKey.get(read.key) === read) queuedByKey.delete(read.key);
+  };
+  const expire = (read: QueuedRead) => {
+    const index = queue.indexOf(read);
+    if (index >= 0) queue.splice(index, 1);
+    leaveQueue(read);
+    for (const waiter of read.waiters) waiter.reject(expiredError());
+  };
+
   const drain = () => {
     while (active < maxActive && queue.length > 0) {
       const read = queue.shift()!;
-      if (read.key !== null) queuedByKey.delete(read.key);
+      leaveQueue(read);
+      // The timer normally fires first; this covers a timer delayed by a busy JS thread.
+      if (now() - read.enqueuedAt >= maxWaitMs) {
+        for (const waiter of read.waiters) waiter.reject(expiredError());
+        continue;
+      }
       active += 1;
       void Promise.resolve()
         .then(read.task)
@@ -73,7 +101,8 @@ export function createLowPriorityReadGate(maxActive = LOW_PRIORITY_READ_MAX_ACTI
           reject(new DeviceLinkError('BACKPRESSURE', 'too many low-priority reads queued'));
           return;
         }
-        const read: QueuedRead = { key, task, waiters: [waiter] };
+        const read: QueuedRead = { key, task, enqueuedAt: now(), expiry: undefined, waiters: [waiter] };
+        read.expiry = setTimeout(() => expire(read), maxWaitMs);
         queue.push(read);
         if (key !== null) queuedByKey.set(key, read);
         drain();

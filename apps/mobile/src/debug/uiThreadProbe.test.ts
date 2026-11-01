@@ -1,19 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createUiThreadProbe, UI_THREAD_UNRESPONSIVE_MS } from './uiThreadProbe';
+import { createUiThreadProbe, UI_THREAD_UNANSWERED_MS } from './uiThreadProbe';
 
 function harness() {
   let time = 1_000;
   const replies: ((sentAt: number, arrivedAt: number) => void)[] = [];
   const onLag = vi.fn();
-  const onUnresponsive = vi.fn();
+  const onUnanswered = vi.fn();
   const sent: number[] = [];
   const probe = createUiThreadProbe({
     now: () => time,
     ping: (sentAt, arrived) => { sent.push(sentAt); replies.push(arrived); },
     onLag,
-    onUnresponsive,
+    onUnanswered,
   });
-  return { probe, sent, replies, onLag, onUnresponsive, advance: (ms: number) => { time += ms; }, now: () => time };
+  return { probe, sent, replies, onLag, onUnanswered, advance: (ms: number) => { time += ms; }, now: () => time };
 }
 
 describe('createUiThreadProbe', () => {
@@ -33,18 +33,18 @@ describe('createUiThreadProbe', () => {
     expect(h.sent).toHaveLength(1);
   });
 
-  it('reports a ping with no answer once, so a force quit still leaves evidence', () => {
+  it('reports a ping with no answer once (it cannot tell a hung UI thread from a busy JS thread), so a force quit still leaves evidence', () => {
     const h = harness();
     h.probe.sample();
-    h.advance(UI_THREAD_UNRESPONSIVE_MS - 1);
+    h.advance(UI_THREAD_UNANSWERED_MS - 1);
     h.probe.sample();
-    expect(h.onUnresponsive).not.toHaveBeenCalled();
+    expect(h.onUnanswered).not.toHaveBeenCalled();
     h.advance(1);
     h.probe.sample();
     h.advance(2_000);
     h.probe.sample();
-    expect(h.onUnresponsive).toHaveBeenCalledTimes(1);
-    expect(h.onUnresponsive).toHaveBeenCalledWith(UI_THREAD_UNRESPONSIVE_MS);
+    expect(h.onUnanswered).toHaveBeenCalledTimes(1);
+    expect(h.onUnanswered).toHaveBeenCalledWith(UI_THREAD_UNANSWERED_MS);
   });
 
   it('ignores a late reply from before a lifecycle reset', () => {
@@ -61,7 +61,7 @@ describe('createUiThreadProbe', () => {
   it('survives a ping that cannot be scheduled', () => {
     const onLag = vi.fn();
     const ping = vi.fn(() => { throw new Error('no runtime'); });
-    const probe = createUiThreadProbe({ ping, onLag, onUnresponsive: vi.fn() });
+    const probe = createUiThreadProbe({ ping, onLag, onUnanswered: vi.fn() });
     expect(() => { probe.sample(); probe.sample(); }).not.toThrow();
     expect(ping).toHaveBeenCalledTimes(2);
   });

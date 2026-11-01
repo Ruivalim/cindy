@@ -6,9 +6,23 @@ import { GithubReadService, type Journal } from '../githubReadService';
 import { GithubReadTransport } from '../githubReadTransport';
 import { parseGithubPr } from '@cindy/maker-shared';
 
+const host = vi.hoisted(() => ({
+  account: null as unknown,
+  fetch: vi.fn(),
+}));
+vi.mock('../../authManager', () => ({ getDeviceId: () => 'computer' }));
+vi.mock('../../localDb/client/current', () => ({ getCurrentDbClientSnapshot: () => host.account }));
+vi.mock('../../maker-host/outbound-fetch', () => ({ outboundFetch: host.fetch }));
+vi.mock('../ghCliTokenSource', () => ({
+  getSharedGhCliTokenSource: () => ({
+    readTokenDetailed: async () => ({ ok: true, token: 'fake' }),
+  }),
+}));
+
 function setup() {
   const store = new Map<string, Journal>();
   let body = 'old';
+  let present = true;
   let partial = false;
   let identity = 'account-a';
   const service = () =>
@@ -31,7 +45,7 @@ function setup() {
         checks: { total: 0, passed: 0, pending: 0, failed: 0, skipped: 0 },
       }),
       details: async (_pr, kind) => ({
-        items: kind === 'comments' ? [{ id: 'c1', body }] : [],
+        items: kind === 'comments' && present ? [{ id: 'c1', body }] : [],
         partial,
         errors: partial ? ['failure'] : [],
         observed_at: Date.now(),
@@ -46,6 +60,10 @@ function setup() {
     store,
     edit: (value: string) => {
       body = value;
+      present = true;
+    },
+    deleteComment: () => {
+      present = false;
     },
     fail: (value: boolean) => {
       partial = value;
@@ -94,6 +112,32 @@ describe('shared GitHub read protocol', () => {
     expect((await service.read('get_pr_changes', { pr, after: first.next_cursor })).events).toEqual(
       [],
     );
+  });
+  // r4434503933: a complete empty comment list must retract the old fact; partial reads cannot.
+  it('records deletions once across restart without confusing incomplete reads or reappearing items', async () => {
+    const h = setup();
+    const service = h.service();
+    const baseline = await service.read('get_pr_changes', { pr });
+    h.deleteComment();
+    h.fail(true);
+    await expect(
+      service.read('get_pr_changes', { pr, after: baseline.next_cursor }),
+    ).rejects.toThrow('GITHUB_OBSERVATION_INCOMPLETE');
+    h.fail(false);
+    const removed = await service.read('get_pr_changes', { pr, after: baseline.next_cursor });
+    expect(removed.events).toMatchObject([
+      { kind: 'comments', item_id: 'c1', fact: { id: 'c1', deleted: true } },
+    ]);
+    expect(
+      (await h.service().read('get_pr_changes', { pr, after: baseline.next_cursor })).events,
+    ).toEqual(removed.events);
+    expect(
+      (await service.read('get_pr_changes', { pr, after: removed.next_cursor })).events,
+    ).toEqual([]);
+    h.edit('restored');
+    expect(
+      (await service.read('get_pr_changes', { pr, after: removed.next_cursor })).events,
+    ).toMatchObject([{ kind: 'comments', fact: { body: 'restored' } }]);
   });
   it('does not advance failed observations and rejects foreign or expired cursors', async () => {
     const h = setup();
@@ -226,4 +270,90 @@ it('rejects an in-flight response after authorization invalidation', async () =>
   transport.invalidate();
   finish(Response.json({ private: true }));
   await expect(pending).rejects.toThrow('GITHUB_AUTH_CHANGED');
+});
+
+// r4434503941: exercise host assembly, not a mocked details callback. One batched first page
+// plus one continuation must remain two network requests even under explicit refresh (unit tier).
+it('reuses refreshed observation first pages and refreshes only their continuations', async () => {
+  const { createGithubReadService } = await import('../githubReadHost');
+  let journal: string | undefined;
+  host.account = {
+    userId: 'account',
+    clientEpoch: 1,
+    client: {
+      drizzle: {
+        select: () => ({
+          from: () => ({
+            where: () => ({ limit: async () => (journal ? [{ state: journal }] : []) }),
+          }),
+        }),
+        insert: () => ({
+          values: (row: { state: string }) => ({
+            onConflictDoUpdate: async () => {
+              journal = row.state;
+            },
+          }),
+        }),
+        delete: () => ({ where: async () => {} }),
+      },
+    },
+  };
+  let version = 'one';
+  const page = (nodes: unknown[], next: string | null = null) => ({
+    nodes,
+    pageInfo: { hasNextPage: !!next, endCursor: next },
+  });
+  host.fetch.mockImplementation(async (_input, init) => {
+    const { query, variables } = JSON.parse(init.body);
+    const comments = page(
+      [{ id: variables.after ? 'c2' : 'c1', body: version }],
+      variables.after ? null : 'page-2',
+    );
+    const contexts = page([]);
+    const pullRequest = query.includes('threads:reviewThreads')
+      ? { threads: page([]), comments, reviews: page([]) }
+      : { comments, reviews: page([]), reviewThreads: page([]) };
+    return Response.json({
+      data: { repository: { pullRequest, object: { statusCheckRollup: { contexts } } } },
+    });
+  });
+  const status = {
+    ...pr,
+    owner: 'o',
+    repo: 'r',
+    prNumber: 1,
+    ok: true as const,
+    status: 'open' as const,
+    title: 'Test',
+    branch: 'branch',
+    htmlUrl: 'https://github.com/o/r/pull/1',
+    headSha: 'abc',
+    baseBranch: 'main',
+    unresolvedCount: 0,
+    checks: { total: 0, passed: 0, pending: 0, failed: 0, skipped: 0 },
+  };
+  const service = createGithubReadService({
+    getStatuses: async () => [status],
+  } as unknown as import('../prStatusService').PrStatusService);
+  const baseline = await service.read('get_pr_changes', { pr, freshness: 'refresh' });
+  expect(host.fetch).toHaveBeenCalledTimes(2);
+  version = 'two';
+  const changed = await service.read('get_pr_changes', {
+    pr,
+    freshness: 'refresh',
+    after: baseline.next_cursor,
+  });
+  expect(host.fetch).toHaveBeenCalledTimes(4);
+  expect(changed.events).toMatchObject([
+    { item_id: 'c1', fact: { body: 'two' } },
+    { item_id: 'c2', fact: { body: 'two' } },
+  ]);
+  version = 'three';
+  const direct = await service.read('get_pr_details', {
+    pr,
+    kind: 'comments',
+    freshness: 'refresh',
+  });
+  expect(direct.items).toMatchObject([{ body: 'three' }, { body: 'three' }]);
+  expect(host.fetch).toHaveBeenCalledTimes(6);
 });

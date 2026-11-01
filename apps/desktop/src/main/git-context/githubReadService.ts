@@ -224,24 +224,27 @@ export class GithubReadService {
       ['lifecycle', [{ id: 'lifecycle', state: status.status }]],
       ...kinds.map((kind, index): [string, GithubFact[]] => [kind, details[index].items]),
     ];
+    const recordEvent = (kind: string, id: string, fact: GithubFact) => {
+      const sequence = ++journal.sequence;
+      journal.events.push({
+        sequence,
+        event_id: hash([key, journal.generation, sequence]),
+        kind,
+        item_id: id,
+        observed_at: Date.now(),
+        fact,
+      });
+    };
     for (const [kind, rows] of facts) {
       const signatures: Record<string, string> = {};
       for (const fact of rows) {
         const id = String(fact.id ?? fact.context ?? hash(fact));
         const signature = hash(fact);
         signatures[id] = signature;
-        if (previous && journal.signatures[kind]?.[id] !== signature) {
-          const sequence = ++journal.sequence;
-          journal.events.push({
-            sequence,
-            event_id: hash([key, journal.generation, sequence]),
-            kind,
-            item_id: id,
-            observed_at: Date.now(),
-            fact,
-          });
-        }
+        if (previous && journal.signatures[kind]?.[id] !== signature) recordEvent(kind, id, fact);
       }
+      for (const id of Object.keys(journal.signatures[kind] ?? {}))
+        if (!Object.hasOwn(signatures, id)) recordEvent(kind, id, { id, deleted: true });
       journal.signatures[kind] = signatures;
     }
     // Bounded durable log; an evicted consumer receives RESYNC_REQUIRED.

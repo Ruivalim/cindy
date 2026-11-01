@@ -55,6 +55,8 @@ export function createGithubReadService(statusService: PrStatusService): GithubR
     };
     await assertCurrent();
     const db = account.client.drizzle;
+    // Only first pages prepared by this read may bypass an explicit refresh below.
+    let prepared: { key: string; at: number; pages: Record<string, Connection> } | undefined;
     return {
       scope,
       sourceDevice: getDeviceId(),
@@ -72,15 +74,15 @@ export function createGithubReadService(statusService: PrStatusService): GithubR
         );
         await assertCurrent();
         if (seeds.size >= 200) seeds.delete(seeds.keys().next().value!);
-        seeds.set(`${transportScope}:${pr.owner}/${pr.repo}#${pr.prNumber}:${head}`, {
-          at: observedAt,
-          pages,
-        });
+        const key = `${transportScope}:${pr.owner}/${pr.repo}#${pr.prNumber}:${head}`;
+        prepared = { key, at: observedAt, pages };
+        seeds.set(key, prepared);
       },
       details: (pr, kind, head, base, refresh) => {
-        const cached = seeds.get(`${transportScope}:${pr.owner}/${pr.repo}#${pr.prNumber}:${head}`);
+        const key = `${transportScope}:${pr.owner}/${pr.repo}#${pr.prNumber}:${head}`;
+        const cached = prepared?.key === key ? prepared : !refresh ? seeds.get(key) : undefined;
         const seed =
-          !refresh && cached && cached.at + 60_000 > Date.now()
+          cached && cached.at + 60_000 > Date.now()
             ? structuredClone(cached.pages[kind])
             : undefined;
         return readGithubDetails({

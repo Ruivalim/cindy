@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
   offPush: vi.fn(),
   offMcp: vi.fn(),
   list: vi.fn(async () => ({ agentKind: 'pi', servers: [] })),
+  setEnabled: vi.fn(async () => {}),
 }));
 vi.mock('../botPronounContext', () => ({ useBotTranslation: () => ({ t: (key: string, opts?: { defaultValue?: string }) => opts?.defaultValue ?? key }) }));
 vi.mock('../botStore', () => ({
@@ -15,6 +16,9 @@ vi.mock('../botStore', () => ({
   subscribeBotGlobalModel: () => () => {},
 }));
 vi.mock('@/lib/sessionService', () => ({ get: async () => ({ agentKind: 'pi' }) }));
+// The Skill pages render Markdown; these tests cover the list.
+vi.mock('../BotSkillPage', () => ({ BotSkillPage: () => null }));
+vi.mock('@/components/ui/toast', () => ({ toast: { error: vi.fn() } }));
 vi.mock('@/lib/sessionsBus', () => ({ onPatch: () => h.offLocal }));
 vi.mock('@/contexts/dataOwnerGeneration', () => ({
   getDataOwnerGeneration: () => 1,
@@ -33,7 +37,10 @@ describe('controlled capability page lifetime', () => {
     Object.defineProperty(window, 'electronAPI', {
       configurable: true,
       value: {
-        localDb: { sessionsPush: { onPatched: () => h.offPush }, bots: { listSkills: async () => [{ slug: 'weekly-report', name: '整理工作周报', enabled: true }] } },
+        localDb: { sessionsPush: { onPatched: () => h.offPush }, bots: {
+          listSkills: async () => [{ slug: 'weekly-report', name: '整理工作周报', enabled: true }],
+          skills: { setEnabled: h.setEnabled },
+        } },
         maker: {
           onMcpChanged: () => h.offMcp,
           listCustomMcpServers: h.list,
@@ -55,7 +62,9 @@ describe('controlled capability page lifetime', () => {
     await waitFor(() => expect(view.getByText('整理工作周报')).toBeTruthy());
     const checkbox = view.getByRole('switch', { name: '整理工作周报' }) as HTMLButtonElement;
     expect(checkbox.getAttribute('aria-checked') === 'true').toBe(true);
-    expect(checkbox.disabled).toBe(true);
+    // A learned Skill can be turned off from the list; the files stay.
+    fireEvent.click(checkbox);
+    await waitFor(() => expect(h.setEnabled).toHaveBeenCalledExactlyOnceWith('bot-1', 'weekly-report', false));
     view.rerender(<BotCapabilitySettings {...props} expanded={false} />);
     expect(h.offLocal).toHaveBeenCalledOnce();
     expect(h.offPush).toHaveBeenCalledOnce();
@@ -197,7 +206,7 @@ it.each(['mcp', 'toolset'] as const)('preserves inherited %s tools until its fai
   expect(onChange).toHaveBeenCalledExactlyOnceWith(kind, ['inherited']);
 });
 
-it('keeps the full tool list visible and offers configuration for available and unavailable tools', async () => {
+it('offers turning on an unavailable tool and keeps tool settings in the group heading', async () => {
   Object.defineProperty(window, 'electronAPI', { configurable: true, value: {
     localDb: { sessionsPush: { onPatched: () => h.offPush }, bots: { listSkills: async () => [] } },
     maker: { onMcpChanged: () => h.offMcp, listCustomMcpServers: h.list,
@@ -216,12 +225,34 @@ it('keeps the full tool list visible and offers configuration for available and 
     skills={[]} onChange={vi.fn()} />);
   await waitFor(() => expect(view.getByRole('switch', { name: 'Browser' })).toBeTruthy());
   const field = view.getByRole('switch', { name: 'Browser' }).closest('fieldset')!;
-  expect(field.querySelector('.overflow-y-auto')).toBeNull();
   expect(field.textContent).toContain('Read and operate web pages');
-  const buttons = field.querySelectorAll<HTMLButtonElement>('button:not([role=switch])');
-  fireEvent.click(buttons[0]!); expect(onConfigure).toHaveBeenLastCalledWith('toolset', 'browser');
-  fireEvent.click(buttons[1]!); expect(onConfigure).toHaveBeenLastCalledWith('toolset', 'computer');
+  fireEvent.click(view.getByRole('button', { name: 'bots.capabilities.turnOn' }));
+  expect(onConfigure).toHaveBeenLastCalledWith('toolset', 'computer');
+  fireEvent.click(view.getByRole('button', { name: 'bots.capabilities.toolSettings' }));
+  expect(onConfigure).toHaveBeenLastCalledWith('toolset');
   fireEvent.change(view.getByRole('textbox'), { target: { value: 'web pages' } });
   expect(view.getByRole('switch', { name: 'Browser' })).toBeTruthy();
   expect(view.queryByRole('switch', { name: 'Computer' })).toBeNull();
+});
+
+it('turns a system Skill off for this teammate without touching shared references', async () => {
+  Object.defineProperty(window, 'electronAPI', { configurable: true, value: {
+    localDb: { sessionsPush: { onPatched: () => h.offPush }, bots: { listSkills: async () => [] } },
+    maker: { onMcpChanged: () => h.offMcp, listCustomMcpServers: h.list,
+      listAgentSkills: async () => ({ success: true, skills: [] }), plugins: { list: async () => [] } },
+  } });
+  const onChange = vi.fn();
+  const onSystemSkillChange = vi.fn();
+  const view = render(<BotCapabilitySettings expanded onSystemSkillChange={onSystemSkillChange}
+    bot={{ id: 'bot-1', canonicalSessionId: 's1' } as BotProfile}
+    capabilities={{ modelChain: [], modelChainOverride: null, mcpServers: [], toolsets: [],
+      systemSkillsOff: ['routine'] } as unknown as BotProfile['capabilities']}
+    skills={[]} onChange={onChange} />);
+  const todo = view.getByRole('switch', { name: 'bots.capabilities.system.items.todo.name' });
+  const routine = view.getByRole('switch', { name: 'bots.capabilities.system.items.routine.name' });
+  expect(todo.getAttribute('aria-checked')).toBe('true');
+  expect(routine.getAttribute('aria-checked')).toBe('false');
+  fireEvent.click(todo);
+  expect(onSystemSkillChange).toHaveBeenCalledExactlyOnceWith('todo', false);
+  expect(onChange).not.toHaveBeenCalled();
 });

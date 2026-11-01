@@ -1,5 +1,4 @@
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/input';
 import { shouldShowOpenPathError } from '../../../shared/openPathResult';
 import { ConnectProviderCard } from '@/components/onboarding/ConnectProviderCard';
@@ -42,6 +41,7 @@ import { BotRosterView } from './BotRosterView';
 import { BotAvatar } from './BotAvatar';
 import { BotBasicProfileFields } from './BotBasicProfileFields';
 import { normalizeBotName } from '../../../shared/botCreation';
+import { withBotSystemSkill } from '../../../shared/botSystemSkills';
 import {
   botEntryTarget,
   createBotCanonicalSessionWithRetry,
@@ -154,6 +154,7 @@ export function BotSettings({
   const routineBackRef = useRef<(() => Promise<boolean>) | null>(null);
   const memoryLeaveRef = useRef<(() => Promise<boolean>) | null>(null);
   const memoryBackRef = useRef<(() => Promise<boolean>) | null>(null);
+  const capabilityBackRef = useRef<(() => Promise<boolean>) | null>(null);
   const pageTitle =
     page === 'projects' ? t('bots.projects.title') : page === 'voice'
       ? t('bots.voiceMode.settingsTitle')
@@ -446,6 +447,7 @@ export function BotSettings({
                 onClick={() =>
                   void (async () => {
                     if (page === 'memory' && (await memoryBackRef.current?.())) return;
+                    if (page === 'capabilities' && (await capabilityBackRef.current?.())) return;
                     if (page === 'routines' && (await routineBackRef.current?.())) return;
                     go('home');
                   })()
@@ -674,6 +676,13 @@ export function BotSettings({
                 });
               }}
               expanded={page === 'capabilities'}
+              backRef={capabilityBackRef}
+              // An older teammate computer rejects the unknown field; its switches stay read-only.
+              onSystemSkillChange={target.kind === 'local' || target.skills ? (id, on) => {
+                setCapabilities((current) => ({ ...current, systemSkillsOff: withBotSystemSkill(current.systemSkillsOff, id, on) }));
+                autosave.onEdit('instant');
+              } : undefined}
+              onInputHandoffChange={(allowed) => updateCapability('inputHandoff', allowed)}
               bot={bot}
               capabilities={capabilities}
               skills={selectedSkills}
@@ -690,18 +699,6 @@ export function BotSettings({
                 autosave.onEdit('instant');
               }}
             />
-            <div className="mt-5 flex items-start gap-3 border-t border-[var(--border-default)] pt-4">
-              <div className="min-w-0 flex-1">
-                <p className="text-13 font-medium text-[var(--text-primary)]">{t('bots.capabilities.inputHandoff.title')}</p>
-                <p className="mt-1 text-12 leading-5 text-[var(--text-secondary)]">{t('bots.capabilities.inputHandoff.description')}</p>
-              </div>
-              <Switch
-                aria-label={t('bots.capabilities.inputHandoff.title')}
-                className="mt-0.5 shrink-0"
-                checked={capabilities.inputHandoff !== false}
-                onCheckedChange={(value) => updateCapability('inputHandoff', value === true)}
-              />
-            </div>
           </div>
         )}
         {page === 'channels' ? <BotChannelsPage bot={bot} /> : null}
@@ -784,12 +781,14 @@ export function BotSettings({
             inheritedRoute={displayedModelChain[0]}
             beforeLeaveRef={routineLeaveRef}
             backRef={routineBackRef}
+            systemSkillsOff={capabilities.systemSkillsOff ?? []}
             header={
               <BotAutonomySettings
                 botId={bot.id}
                 botName={displayName}
                 allowSchedulerFollow={capabilities.allowSchedulerFollow === true}
                 onAllowSchedulerFollowChange={(value) => updateCapability('allowSchedulerFollow', value)}
+                followOff={capabilities.systemSkillsOff?.includes('follow') === true}
               />
             }
           />

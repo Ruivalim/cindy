@@ -306,6 +306,33 @@ describe('installBrowserGuestHandlers(main-owned popup)', () => {
     });
     expect(popup.close).not.toHaveBeenCalled();
   });
+
+  // 测试价值
+  // - 生产入口与可观察结果：installBrowserGuestHandlers 的 createWindow 回调；即使 Electron 没给 child WebContents，目标链接仍作为 RSB 标签投递且回调不抛错。
+  // - Bug／规则依据：#7910；Electron 从链接触发的新窗口路径允许 createWindow 收到缺省 guest。
+  // - 现有覆盖缺口：已有测试只传入 Electron 预创建的 popup WebContents。
+  // - 最小失败输入：HTTP(S) window-open 回调后调用 createWindow({})。
+  // - tier：unit；通过生产回调和内存 WebContents fake 观察 host IPC。
+  it('routes to a tab when Electron calls createWindow without popup WebContents', () => {
+    const host = makeContents(1);
+    const opener = makeContents(42);
+    installBrowserGuestHandlers(host as never, opener as never);
+
+    const response = opener.getOpenHandler()!({
+      url: 'https://x.com/i/jf/onboarding/web?mode=login',
+      disposition: 'foreground-tab',
+    }) as {
+      action: string;
+      createWindow: (options: { webContents?: WebContents }) => WebContents;
+    };
+
+    expect(response.createWindow({})).toBe(opener);
+    expect(nativeSurfaceMocks.create).not.toHaveBeenCalled();
+    expect(host.send).toHaveBeenCalledWith(RSB_BROWSER_POPUP_CHANNEL, {
+      url: 'https://x.com/i/jf/onboarding/web?mode=login',
+      disposition: 'foreground-tab',
+    });
+  });
 });
 
 describe('applyGhostWebviewHardening(意识面板 webview)', () => {

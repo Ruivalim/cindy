@@ -12853,6 +12853,7 @@
     "cindyServiceUnavailable": "El servicio de voz de Cindy no está disponible. Revisa tu red o cambia de fuente de servicio.",
     "asrServiceUnavailable": "No se pudo conectar al servicio de reconocimiento de voz. Revisa tu red e inténtalo de nuevo.",
     "emptyTranscript": "Se detectó voz, pero no se reconoció ningún texto. Inténtalo de nuevo.",
+    "speakerFiltered": "Se ignoró la voz de otra persona",
     "connectionInterrupted": "La conexión de voz fue interrumpida. Verifique su red e inténtelo nuevamente.",
     "recognitionStalled": "El reconocimiento de voz dejó de dar resultados. Intentar otra vez.",
     "transcriptKept": "{{message}} El texto reconocido hasta ahora se mantuvo; puede editarlo directamente.",

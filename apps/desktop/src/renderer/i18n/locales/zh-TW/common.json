@@ -12698,6 +12698,7 @@
     "cindyServiceUnavailable": "Cindy 官方語音服務暫不可用，請檢查網路或切換服務來源。",
     "asrServiceUnavailable": "語音識別服務連線失敗，請檢查網路或稍後重試。",
     "emptyTranscript": "檢測到了語音，但沒有識別出文字，請重試。",
+    "speakerFiltered": "已忽略其他人的聲音",
     "connectionInterrupted": "語音連線中斷了，請檢查網路後重試。",
     "recognitionStalled": "語音識別沒有繼續返回結果，請重試。",
     "transcriptKept": "{{message}}（識別出的文字已經保留，可以直接編輯）",

@@ -12698,6 +12698,7 @@
     "cindyServiceUnavailable": "Cindy 官方声服暂不可用，请察网络，或易其服源。",
     "asrServiceUnavailable": "识声之服连接未成，请察网络，或稍后再试。",
     "emptyTranscript": "已闻其声，而未识一字，请再试。",
+    "speakerFiltered": "他人之声已略",
     "connectionInterrupted": "声之连接中断，请察网络后再试。",
     "recognitionStalled": "识声不复有所回，请再试。",
     "transcriptKept": "{{message}}（所识之文已存，可径修之）",

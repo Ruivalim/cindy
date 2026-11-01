@@ -197,7 +197,7 @@
       },
       "actionCopy": {
         "pending": "請先理待處之請求，畢後輸入區自復。",
-        "archived": "差事已封存，復之方可續遣。",
+        "archived": "差事已封存，遣之則自解封存。",
         "deleted": "差事已刪，不可再為。",
         "queuePaused": "佇列已暫停，可於佇列面板續行。"
       }
@@ -440,7 +440,7 @@
     "copyLinkAction": "錄差事連結",
     "unpin": "去置頂",
     "pin": "居首",
-    "restore": "復",
+    "restore": "解封存",
     "archive": "封存",
     "deleteAction": "刪差事",
     "deleteConversation": "刪差事",

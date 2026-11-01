@@ -197,7 +197,7 @@
       },
       "actionCopy": {
         "pending": "Traitez d'abord la demande en attente ; la zone de saisie sera ensuite restaurée.",
-        "archived": "Cette session est archivée. Restaurez-la avant d'envoyer d'autres messages.",
+        "archived": "Cette session est archivée. Envoyer un message la désarchive automatiquement.",
         "deleted": "Cette session est supprimée et ne peut pas être modifiée.",
         "queuePaused": "La file d'attente est en pause. Reprenez-la depuis le panneau de la file d'attente."
       }
@@ -441,7 +441,7 @@
     "copyLinkAction": "Copier le lien",
     "unpin": "Désépingler",
     "pin": "Épingler",
-    "restore": "Restaurer",
+    "restore": "Désarchiver",
     "archive": "Archiver",
     "deleteAction": "Supprimer la session",
     "deleteConversation": "Supprimer la session",

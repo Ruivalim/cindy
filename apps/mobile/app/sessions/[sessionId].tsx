@@ -6918,6 +6918,7 @@ function SessionScreenContent({ beforeSessionSwitchRef, newSessionActionRef }: S
             }
             return messageAccepted;
           }
+          unarchiveAfterSend();
           if (!independent && composerDocumentsEqual(composerDocumentRef.current, documentBeforeSend)) {
             applyComposerDocument(documentAfterOptimisticClear);
           }
@@ -7341,7 +7342,10 @@ function SessionScreenContent({ beforeSessionSwitchRef, newSessionActionRef }: S
       // A 的附件 id / plan 状态去清理 B 的 composer UI。
       messageAccepted = enqueueAccepted;
       if (!sendScopeStillAlive()) return messageAccepted;
-      if (enqueueAccepted) setFollowUpEngaged(followUpScope);
+      if (enqueueAccepted) {
+        setFollowUpEngaged(followUpScope);
+        unarchiveAfterSend();
+      }
       if (sessionAtSend.permissionMode === 'plan') {
         // 一次性语义(对齐桌面 PR#494 / 产品决策):计划模式只对本条消息生效,发送后
         // 自动恢复进入前的权限档;本条消息通常已按 plan 派发,切换只影响后续消息。
@@ -9743,6 +9747,16 @@ function SessionScreenContent({ beforeSessionSwitchRef, newSessionActionRef }: S
       }
     })();
   }, [currentSession, deviceId, goBackToHome, invoke, maker, patchSessionFromList, sessionId, sessionSubscriptionIdentity, t]);
+
+  // 与桌面一致:在已归档任务里发出消息即视为重新启用,自动取消归档。只在消息已确定
+  // 发出(落进待发队列或被控端已接收)后调用;本地命令不经过这里。菜单不提供取消归档的
+  // 任务(伙伴托管、分享来的任务、协同 Worker)同样不在这里改状态。
+  function unarchiveAfterSend() {
+    const row = readSessionRowNow();
+    if (row?.status !== 'archived' || row.orcaRole === 'worker') return;
+    if (sessionManagedByHost || isSharedTaskPeer(deviceId)) return;
+    patchSessionMeta({ status: 'active' });
+  }
 
   const previewRewindAtMessage = useCallback(async (clientId: string, draft: MobileMessageDraft) => {
     if (messageActionBusy) return;

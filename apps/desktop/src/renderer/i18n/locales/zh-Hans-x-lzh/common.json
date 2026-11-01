@@ -1335,6 +1335,20 @@
       "lock-unreadable": "不能读存此机数据之维护锁。请察数据目录之访问权限；复访问后重启。若仍未成，请联系支持人员。",
       "recovery-busy": "另一 Cindy 运行个体方察此机数据之维护锁。请稍后重启。"
     },
+    "passiveCorrupt": {
+      "title": "共享数据库不可复原",
+      "description": "共享数据库方为他实例所用，Cindy 于其运行之际，不自行复原或改动 schema。请先关闭共用此 userData 之 passive 实例而重试，或改用 --isolated。"
+    },
+    "corrupt": {
+      "title": "本地数据库不可开",
+      "description": "本地数据库或已损毁，或为共用同一数据之他 Cindy 实例所占。若他实例已开，请先关闭而重试；仍不可，则无可用备份能自动复原，请复制技术细节告知团队，以求协助复原数据。",
+      "copy": "复制技术细节"
+    },
+    "initFailed": {
+      "title": "本地数据库启动失败",
+      "description": "本地数据库未能启动。请先重试；若仍失败，请将下列技术细节告知团队。",
+      "retry": "重试启动数据库"
+    },
     "databaseCleanup": {
       "interruptedTitle": "数据库清理中辍",
       "interruptedDescription": "数据库清理异常中断。请重启 Cindy，系统将依维护纪录安全复原。",

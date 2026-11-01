@@ -1348,6 +1348,20 @@
       "lock-unreadable": "Die Wartungssperre der lokalen Daten konnte nicht gelesen oder gespeichert werden. Prüfe den Zugriff auf das Datenverzeichnis und öffne die Daten erneut, sobald der Zugriff wiederhergestellt ist. Kontaktiere den Support, falls das Problem weiterhin besteht.",
       "recovery-busy": "Eine andere Cindy-Instanz prüft gerade die Wartungssperre der lokalen Daten. Öffne die lokalen Daten in Kürze erneut."
     },
+    "passiveCorrupt": {
+      "title": "Gemeinsame Datenbank kann nicht wiederhergestellt werden",
+      "description": "Die gemeinsame Datenbank wird von einer anderen Instanz verwendet. Cindy stellt das Schema daher nicht automatisch wieder her und ändert es nicht, solange diese Instanz läuft. Schließe die passive Instanz, die dieses userData teilt, und versuche es erneut, oder verwende --isolated."
+    },
+    "corrupt": {
+      "title": "Lokale Datenbank kann nicht geöffnet werden",
+      "description": "Die lokale Datenbank ist möglicherweise beschädigt oder wird von einer anderen Cindy-Instanz mit denselben Daten verwendet. Falls eine andere Instanz geöffnet ist, schließe sie und versuche es erneut. Besteht das Problem weiter, konnte kein verwendbares Backup sie automatisch wiederherstellen; kopiere die technischen Details und teile sie dem Team mit, um Hilfe bei der Datenwiederherstellung zu erhalten.",
+      "copy": "Technische Details kopieren"
+    },
+    "initFailed": {
+      "title": "Lokale Datenbank konnte nicht gestartet werden",
+      "description": "Die lokale Datenbank konnte nicht gestartet werden. Versuche es zuerst erneut. Falls es weiterhin fehlschlägt, teile dem Team die technischen Details unten mit.",
+      "retry": "Datenbankstart erneut versuchen"
+    },
     "databaseCleanup": {
       "interruptedTitle": "Datenbankbereinigung wurde unterbrochen",
       "interruptedDescription": "Die Datenbankbereinigung wurde unerwartet beendet. Starte Cindy neu, damit die Wiederherstellung anhand des gespeicherten Wartungszustands sicher erfolgen kann.",

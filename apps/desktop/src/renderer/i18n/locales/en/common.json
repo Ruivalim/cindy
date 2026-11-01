@@ -1348,6 +1348,10 @@
       "lock-unreadable": "The local data maintenance lock could not be read or saved. Check access to the data directory, then reopen it after access is restored. Contact support if this continues.",
       "recovery-busy": "Another Cindy instance is checking the local data maintenance lock. Reopen the local data shortly."
     },
+    "passiveCorrupt": {
+      "title": "Shared database can't be recovered",
+      "description": "The shared database is in use by another instance, so Cindy will not automatically recover or modify its schema while that instance is running. Close the passive instance sharing this userData and retry, or use --isolated."
+    },
     "databaseCleanup": {
       "interruptedTitle": "Database Cleanup Was Interrupted",
       "interruptedDescription": "Database cleanup stopped unexpectedly. Restart Cindy so it can recover safely from the saved maintenance state.",

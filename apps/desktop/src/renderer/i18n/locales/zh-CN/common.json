@@ -1335,6 +1335,10 @@
       "lock-unreadable": "无法读取或保存本地数据的维护锁。请检查数据目录的访问权限；恢复访问后重新打开。若仍失败，请联系支持人员。",
       "recovery-busy": "另一个 Cindy 实例正在检查本地数据的维护锁。请稍后重新打开。"
     },
+    "passiveCorrupt": {
+      "title": "共享数据库无法恢复",
+      "description": "共享数据库当前由其它实例使用，Cindy 不会在其运行期间自动恢复或修改 schema。请关闭共享该 userData 的 passive 实例后重试，或改用 --isolated。"
+    },
     "databaseCleanup": {
       "interruptedTitle": "数据库清理中断",
       "interruptedDescription": "数据库清理异常中断。请重新启动 Cindy，系统会根据维护记录安全恢复。",

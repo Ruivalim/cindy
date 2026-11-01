@@ -14693,6 +14693,7 @@
           "hint": "顶列至多示 3 个，固定之 PR 居先",
           "empty": "贴 GitHub PR 链接即可增之",
           "removed": "已除 {{count}} 个",
+          "legacy": "待认旧引：{{count}}",
           "addLabel": "增 PR 链接",
           "add": "增 PR",
           "loading": "方读…",
@@ -15196,6 +15197,7 @@
         "timeout": "时限（秒，可略）",
         "timeoutPlaceholder": "不限",
         "capabilities": {
+          "github_read": "读 GitHub",
           "jira_read": "读 Jira",
           "jira_comment": "评 Jira",
           "sessions_dispatch": "派差事",
@@ -15207,6 +15209,7 @@
         "capabilitiesSearch": "寻能",
         "capabilitiesEmpty": "无相合之能",
         "capabilityDescs": {
+          "github_read": "读 PR、CI、评议及所见之变；查询不系任务",
           "jira_read": "查读 Jira 单（依 key 读 / JQL 寻）",
           "jira_comment": "于 Jira 单增评",
           "sessions_dispatch": "立或唤 {{appName}} 差事，并递讯",

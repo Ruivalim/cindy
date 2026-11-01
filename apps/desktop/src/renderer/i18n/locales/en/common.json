@@ -14726,6 +14726,7 @@
           "hint": "Up to 3 in the header; pinned PRs appear first",
           "empty": "Paste a GitHub PR link to add it",
           "removed": "Removed: {{count}}",
+          "legacy": "Unconfirmed references: {{count}}",
           "addLabel": "Add PR Link",
           "add": "Add PR",
           "loading": "Loading…",
@@ -15229,6 +15230,7 @@
         "timeout": "Timeout (seconds, optional)",
         "timeoutPlaceholder": "No timeout",
         "capabilities": {
+          "github_read": "Read GitHub",
           "jira_read": "Read Jira",
           "jira_comment": "Comment on Jira",
           "sessions_dispatch": "Dispatch sessions",
@@ -15240,6 +15242,7 @@
         "capabilitiesSearch": "Search capabilities",
         "capabilitiesEmpty": "No matching capabilities",
         "capabilityDescs": {
+          "github_read": "Read PR status, CI, reviews and observed changes; queries do not link tasks",
           "jira_read": "Read Jira issues (get by key / JQL search)",
           "jira_comment": "Add comments to Jira issues",
           "sessions_dispatch": "Create or wake {{appName}} sessions and deliver messages",

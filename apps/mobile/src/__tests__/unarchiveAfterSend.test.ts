@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { remoteSessionStore } from '@/session/remoteSessionStore';
+import { remoteSessionStore, sessionMetaWriteGuard } from '@/session/remoteSessionStore';
 import { unarchiveSessionAfterSend } from '@/session/unarchiveAfterSend';
 import type { RemoteSession } from '@/session/types';
 
@@ -21,15 +21,29 @@ describe('unarchiveSessionAfterSend', () => {
     remoteSessionStore.setDeviceSessions('dev-1', 'Mac', [session('s1')]);
     const invoke = vi.fn(async () => ({}));
     await unarchiveSessionAfterSend('s1', 'dev-1', invoke as never);
-    expect(invoke).toHaveBeenCalledWith('dev-1', 'local-db:sessions:patch-meta', ['s1', { status: 'active' }]);
+    expect(invoke).toHaveBeenCalledWith('dev-1', 'local-db:sessions:patch-meta', ['s1', { status: 'active' }], { preSend: expect.any(Function) });
     expect(statusOf('s1')).toBe('active');
   });
 
   it('keeps the task archived when the host write fails, without surfacing an error', async () => {
     remoteSessionStore.setDeviceSessions('dev-1', 'Mac', [session('s1')]);
-    const invoke = vi.fn(async () => { throw new Error('NOT_CONNECTED'); });
+    const invoke = vi.fn(async () => { throw new Error('HOST_REJECTED'); });
     await expect(unarchiveSessionAfterSend('s1', 'dev-1', invoke as never)).resolves.toBeUndefined();
     expect(statusOf('s1')).toBe('archived');
+  });
+
+  it('lets a later archive win: the stale unarchive neither retries nor rolls the row back', async () => {
+    remoteSessionStore.setDeviceSessions('dev-1', 'Mac', [session('s1')]);
+    let fail: (error: Error) => void = () => {};
+    const invoke = vi.fn((_d: string, _c: string, _a?: unknown[], options?: { preSend?: () => void }) => {
+      options?.preSend?.();
+      return new Promise((_resolve, reject) => { fail = reject; });
+    });
+    const pending = unarchiveSessionAfterSend('s1', 'dev-1', invoke as never);
+    sessionMetaWriteGuard.begin('s1', ['status']); // 用户随后又归档/删除了这个任务
+    fail(new Error('HOST_REJECTED'));
+    await pending;
+    expect(statusOf('s1')).toBe('active');
   });
 
   it.each([

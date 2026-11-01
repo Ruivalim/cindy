@@ -126,18 +126,22 @@ describe("jank metrics", () => {
     });
   });
 
-  it("names a resource action by fixed identifiers only", () => {
+  it("names a resource action only from the known allowlist", () => {
     const label = (request: unknown) => invokeMetricLabel('maker:remote-resources:invoke', [request]);
     expect(invokeMetricLabel('git-context:pr-status', [{ actionId: 'ignored' }])).toBe('git-context:pr-status');
     expect(label({ collectionId: 'teammates', actionId: 'management:settings', input: { op: 'channels.im.listLanes' } }))
       .toBe('maker:remote-resources:invoke#teammates/management:settings/channels.im.listLanes');
-    // A resource id after the second segment, the ref and free-form input never reach the log.
+    expect(label({ collectionId: 'plugins', actionId: 'settings:open' }))
+      .toBe('maker:remote-resources:invoke#plugins/settings:open');
+    // Harmless-looking but unknown values, including ones a host or plugin chooses, are not logged.
     expect(label({
-      collectionId: 'plugins',
-      actionId: 'manage_connection:connection:acct-secret-id',
+      collectionId: 'acme-private',
+      actionId: 'opaque-token',
       resourceRef: { id: 'instance-id' },
-      input: { query: 'private text', op: 'has spaces and secret' },
-    })).toBe('maker:remote-resources:invoke#plugins/manage_connection:connection/?');
+      input: { query: 'private text', op: 'opaque-op' },
+    })).toBe('maker:remote-resources:invoke#?/?/?');
+    expect(label({ collectionId: 'plugins', actionId: 'manage_connection:connection:acct-secret-id' }))
+      .toBe('maker:remote-resources:invoke#plugins/?');
     expect(label(undefined)).toBe('maker:remote-resources:invoke#?/?');
   });
 

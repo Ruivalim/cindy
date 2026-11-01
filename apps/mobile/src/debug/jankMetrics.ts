@@ -117,22 +117,31 @@ export function recordInvokeTransfer(event: { channel: string; phase: 'sent' | '
   transfers.set(event.channel, entry);
 }
 
-const METRIC_NAME = /^[\w.-]{1,40}$/;
-const metricName = (value: unknown) => typeof value === 'string' && METRIC_NAME.test(value) ? value : '?';
+// Request fields are supplied by the host or a plugin, so a name that merely looks harmless is not
+// safe to persist. Only identifiers this app itself sends are written; everything else is `?`.
+const KNOWN_COLLECTIONS: ReadonlySet<string> = new Set([
+  'teammates', 'bot-groups', 'plugins', 'plugin-results', 'session-import', 'companion-import',
+]);
+const KNOWN_ACTIONS: ReadonlySet<string> = new Set([
+  'create', 'import', 'cancel', 'delete', 'archive', 'hide', 'mask-mentions', 'nickname', 'avatar',
+  'transfer', 'bot-access', 'set-member-role', 'remove-member', 'enable', 'disable',
+  'management:settings', 'settings:open', 'todo-update', 'todo-daily-check', 'close', 'suspend', 'answer',
+]);
+const KNOWN_OPS: ReadonlySet<string> = new Set(['caps', 'channels.im.list', 'channels.im.listLanes']);
+const known = (set: ReadonlySet<string>, value: unknown) =>
+  typeof value === 'string' && set.has(value) ? value : '?';
 
 /**
  * `maker:remote-resources:invoke` multiplexes many actions, so its channel alone cannot name a
- * large response. Collection, action and op are fixed names; an action may carry a resource id
- * after its second segment, so only the first two are kept. Resource refs and input stay out.
+ * large response. The label is built only from the allowlists above; resource refs and free-form
+ * input never reach the log.
  */
 export function invokeMetricLabel(channel: string, args: unknown[] | undefined): string {
   if (channel !== 'maker:remote-resources:invoke') return channel;
   const request = args?.[0] as { collectionId?: unknown; actionId?: unknown; input?: { op?: unknown } } | undefined;
-  const action = typeof request?.actionId === 'string'
-    ? request.actionId.split(':').slice(0, 2).map(metricName).join(':')
-    : '?';
   const op = request?.input?.op;
-  return `${channel}#${metricName(request?.collectionId)}/${action}${op === undefined ? '' : `/${metricName(op)}`}`;
+  return `${channel}#${known(KNOWN_COLLECTIONS, request?.collectionId)}/${known(KNOWN_ACTIONS, request?.actionId)}`
+    + (op === undefined ? '' : `/${known(KNOWN_OPS, op)}`);
 }
 
 export function recordGunzip(event: { offThread: boolean; onThreadMs?: number; fallback?: boolean }): void {

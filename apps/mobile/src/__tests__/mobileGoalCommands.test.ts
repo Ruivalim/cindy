@@ -90,9 +90,11 @@ function existingHarness(args = 'target') {
     maker: { goal: { set: vi.fn(async () => {}), clear: vi.fn(async () => {}), getStatus: vi.fn(async () => ({ status: 'active', objective: 'target' })) } },
     remoteSessionStore: { setGoalStatus: vi.fn(), acquireSessionMessageWork: vi.fn(() => ({ release })), getSessionDeviceId: () => 'host' }, setContextSheetView: vi.fn(), setContextSheetOpen: vi.fn(),
     setGoalRestore: vi.fn(), router: { setParams: vi.fn() }, composerDocumentRef: { current: initial },
+    // Native editors have a mounted handle without the optional WebView flush.
+    composerInputRef: { current: {} },
     composerDocumentsEqual: (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b),
     applyComposerDocument: vi.fn(), normalizeComposerDocument, humanizeRemoteError,
-    composerDraftHydrated: true, voiceState: 'idle', slashCommandsRef: { current: [] }, queueEditingRef: { current: null },
+    composerDraftHydrated: true, voiceState: 'idle', slashCommandsRef: { current: [] }, queueEditingRef: { current: null }, messageEditingRef: { current: null }, messageEditSubmittingRef: { current: false },
     composerDocumentProjectedText, serializeComposerDocument, reconcileComposerProjectedText, emptyComposerDocument,
     canUseComposer: true, attachments: [] as unknown[], attachmentsRef: { current: [] as unknown[] }, pendingUploads: [],
     sendInFlightRef: { current: false }, sending: false, setSending: vi.fn((_sending: boolean) => {}), currentSession: session,

@@ -92,11 +92,13 @@ export interface TodoCardPresentation {
 
 export type MessageActionBarAlignment = 'left' | 'right';
 
-export type MessageActionBarItemId = 'copy' | 'cost' | 'fork' | 'more' | 'time';
+export type MessageActionBarItemId = 'copy' | 'cost' | 'edit' | 'fork' | 'more' | 'time';
 
 export interface MessageActionBarPresentationInput {
   align: 'agent' | 'user';
   canCopy: boolean;
+  /** 只有最后一条用户消息可编辑(编辑 = 回退本轮 + 用改后的内容重发)。 */
+  canEdit?: boolean;
   canFork: boolean;
   hasMoreActions?: boolean;
   hasTime: boolean;
@@ -319,13 +321,16 @@ export interface ToolRowWording {
   intentVerb(action: CommandIntentAction): string;
   /** fileChange 多文件复合短语("更新 3 个文件");量词与语序语言相关,整短语粒度,count 恒 >= 2。 */
   updateFilesLabel(count: number): string;
+  /** Compact activity fallback when no reliable action description is available. */
+  toolCallLabel?(): string;
 }
 
-export const DEFAULT_TOOL_ROW_WORDING: ToolRowWording = {
+export const DEFAULT_TOOL_ROW_WORDING = {
   verb: (key) => TOOL_ROW_VERB_ZH[key],
   intentVerb: (action) => INTENT_VERB_ZH[action],
   updateFilesLabel: (count) => `${TOOL_ROW_VERB_ZH.update} ${count} 个文件`,
-};
+  toolCallLabel: () => '正在调用工具…',
+} satisfies ToolRowWording;
 
 const TOOL_ROW_TEXT_MAX_CHARS = 60;
 
@@ -379,6 +384,8 @@ export function buildMessageActionBarPresentation(
     input.hasTime ? 'time' : null,
     input.canCopy ? 'copy' : null,
     input.canFork ? 'fork' : null,
+    // 对齐桌面用户消息操作行 [time][copy][fork][edit][...][more]。
+    input.canEdit ? 'edit' : null,
     input.hasMoreActions ? 'more' : null,
   ];
   const items = (input.align === 'agent' ? agentItems : userItems).filter(isMessageActionBarItemId);
@@ -848,7 +855,9 @@ function isErrorRecord(value: string): boolean {
     if (status === 'error' || status === 'failed' || status === 'failure') return true;
     return ['error', 'errors', 'exception', 'stderr'].some((key) => {
       const raw = record[key];
-      return typeof raw === 'string' ? raw.trim().length > 0 : raw !== undefined && raw !== null;
+      if (typeof raw === 'string') return raw.trim().length > 0;
+      if (Array.isArray(raw)) return raw.length > 0;
+      return raw !== undefined && raw !== null;
     });
   } catch {
     return false;

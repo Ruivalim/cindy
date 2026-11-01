@@ -99,6 +99,7 @@ describe('messagePresentation', () => {
     expect(buildMessageActionBarPresentation({
       align: 'user',
       canCopy: true,
+      canEdit: true,
       canFork: true,
       hasMoreActions: true,
       hasTime: true,
@@ -108,7 +109,8 @@ describe('messagePresentation', () => {
       align: 'right',
       buttonSize: 24,
       iconSize: 14,
-      items: ['time', 'copy', 'fork', 'more'],
+      // Desktop user row: [time][copy][fork][edit][more]; edit only on the last user message.
+      items: ['time', 'copy', 'fork', 'edit', 'more'],
     });
 
     expect(buildMessageActionBarPresentation({
@@ -451,6 +453,9 @@ describe('messagePresentation', () => {
     expect(isToolErrorLike(message('json', { secondaryBody: '{"status":"failed"}' }))).toBe(true);
     expect(isToolErrorLike(message('text', { secondaryBody: 'process exited with exit code 2' }))).toBe(true);
     expect(isToolErrorLike(message('ok', { secondaryBody: '{"ok":true}' }))).toBe(false);
+    // 成功结果里的空 errors 数组不是失败；非空数组仍是。
+    expect(isToolErrorLike(message('empty-errors', { secondaryBody: '{"ok":true,"errors":[]}' }), false)).toBe(false);
+    expect(isToolErrorLike(message('errors', { secondaryBody: '{"errors":["boom"]}' }), false)).toBe(true);
     // 关闭关键词启发式后只信结构化错误记录。
     expect(isToolErrorLike(message('kw-off', { secondaryBody: 'build failed with error' }), false)).toBe(false);
     expect(isToolErrorLike(message('rec-on', { secondaryBody: '{"status":"failed"}' }), false)).toBe(true);

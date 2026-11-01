@@ -30,7 +30,10 @@ vi.mock('@/session/DiagramDocumentPreview', () => ({ DiagramDocumentPreview: () 
 vi.mock('@/session/SheetModal', () => ({ SheetModal: ({ visible, children }: any) => visible ? children : null }));
 vi.mock('@/components/AppText', async () => {
   const React = await import('react');
-  return { Text: ({ children, testID }: any) => React.createElement('span', { 'data-testid': testID }, children) };
+  return {
+    Text: ({ children, testID }: any) => React.createElement('span', { 'data-testid': testID }, children),
+    TextInput: (await import('react-native')).TextInput,
+  };
 });
 vi.mock('@/session/HtmlFileReader', async () => {
   const React = await import('react');

@@ -11777,9 +11777,7 @@ function SessionHeaderBar({
         <Stack.Toolbar.View hidesSharedBackground>
           <SessionHeaderNativeBack label={t('shared.back')} onPress={onBack} />
         </Stack.Toolbar.View>
-        {sessionListButton ? (
-            <Stack.Toolbar.View hidesSharedBackground>{sessionListButton}</Stack.Toolbar.View>
-          ) : null}
+        {sessionListButton ? <Stack.Toolbar.View hidesSharedBackground>{sessionListButton}</Stack.Toolbar.View> : null}
       </Stack.Toolbar>
       <Stack.Toolbar placement="right">
         <Stack.Toolbar.View hidesSharedBackground>
@@ -11843,8 +11841,7 @@ function SessionHeaderBar({
         />
       )}
 
-      {nativeHeader ? (
-        <SessionHeaderNativeTitle
+      {nativeHeader ? <SessionHeaderNativeTitle
         title={sharedTaskEnded ? t('sharedTask.ended') : title}
           tags={isDeviceAccessRevoked ? undefined : currentSession?.tags}
           onTagsPress={onOpenSettings}
@@ -11853,8 +11850,7 @@ function SessionHeaderBar({
         syncing={syncing}
         syncingImmediately={syncingImmediately}
         notice={notice}
-      />
-      ) : (
+      /> : (
       // 双击标题改名;不参与读屏焦点,读屏用户从「任务详情」进入重命名。
       <Pressable accessible={false} disabled={!titleDoubleTap} onPress={handleTitlePress}
         style={styles.sessionHeaderTextBlock} testID="session.titleArea">
@@ -11980,7 +11976,9 @@ function SessionHeaderIconButton({
       testID={testID}
     >
       <Icon color={color} size={iconSize.action} strokeWidth={iconStroke.regular} />
-      {attention ? <View style={styles.sessionHeaderIconDot} /> : null}
+      {attention ? (
+        <View style={styles.sessionHeaderIconDot} />
+      ) : null}
     </RouteActionButton>
   );
 }

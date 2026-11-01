@@ -1,6 +1,6 @@
 import { LegendList, type LegendListRef } from "@legendapp/list/react-native";
 import { useMemo, useRef, useState } from "react";
-import { Alert, ScrollView, TextInput, View } from "react-native";
+import { Alert, ScrollView, View } from "react-native";
 import {
   Copy,
   Search,
@@ -11,7 +11,7 @@ import {
   X,
 } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
-import { Text } from "@/components/AppText";
+import { Text, TextInput } from "@/components/AppText";
 import { monoFont, spacing, textStyles, useTheme } from "@/theme";
 import { writeClipboardText } from "@/session/messageActions";
 import { PreviewIconButton } from "./PreviewChrome";
@@ -105,8 +105,7 @@ export function TextDocumentPreview({
             style={{
               color: colors.textPrimary,
               fontFamily: monoFont,
-              fontSize: 13,
-              lineHeight: 20,
+              ...textStyles.bodySmall,
               ...(wrap ? { flex: 1 } : {}),
             }}
           >

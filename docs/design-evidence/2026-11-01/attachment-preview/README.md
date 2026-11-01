@@ -136,3 +136,15 @@ Desktop 116 条（媒体原件操作 50、PDF 15、图片标注 13、文本 32�
 当前 head 的 run 41322360581 / job 124895184630 中，Mobile guard 共 483 例，仅 3 例失败，涉及 `messageNativeLifecycleContracts` 与 `optimisticSessionComposer`。本地同样复现 3 失败、26 通过。原因是精确源码检查与原有表达式的括号/换行格式不一致：正文可选择判断的外层括号、恢复同步状态的单行类型、草稿回收回调的单参数写法。
 
 恢复这三处等价的原写法，不修改测试、不删除断言、不改变可选择条件、同步退避或后续消息回收。两个原有文件定向复验 29 例全通过（总运行 0.591 秒，测试执行 0.180 秒）；Mobile typecheck 通过，diff 自检通过。未运行无关全量。此次仅恢复等价格式，没有运行行为或 UI 变化，沿用前述实测证据，不重启 Desktop 或模拟器；原补充验收缺口保持明确。
+
+## Linux 分片 1 修复（2026-11-02，继 8a7c11ae）
+
+Run 41323484318 / job 124898531519 的 Mobile unit 5 例失败来自两个文件。本地定向复现同样为 5 失败、11 通过，分别处置：
+
+- `sessionHeaderDesktopFirst` 的 3 个失败均为本 PR 原格式化导致的精确源码匹配差异。恢复原生标题分支、队列关注图标和系统栏任务列表按钮的原等价写法，保留全部既有断言与界面逻辑。
+- `TextDocumentPreview` 的直接 RN TextInput 绕过公共输入组件，改用 AppText 的 TextInput，恢复现有全局字号限幅及主题光标/选择色；代码文字按现有移动规范的等宽代码角色使用 `textStyles.bodySmall`（15/20）。未增加 token 或改变读取/查找/虚拟化预算。
+- 排版扫描误扫生成的 PDF.js / draw.io 引擎 JS 字符串。按已有 `richContentAssets.generated.ts` 的边界，仅跳过准确路径 `src/session/documentPreviewAssets.generated.ts`；该文件由正式脚本生成、全部为第三方引擎与资产数据，不是 RN 样式。业务阅读器与自行生成的 WebView HTML 仍接受原排版检查，没有删除规则或调整基线。
+
+验证：3 个直接相关测试文件共 35 例通过（总运行 1.48 秒，测试执行 0.969 秒）；Mobile typecheck、test-hygiene、design-inventory、diff 检查通过。没有跑无关全量。原群聊阅读器测试只补公共 TextInput 的原生替身导出，继续执行真实生产阅读器及查找跳转、截断、完整原文复制等原断言，未新增用例。测试价值：排版守卫保护 mobile-design-guide §3 的公共排版和 AppText 契约；此前唯一覆盖缺口为把新生成 vendor 引擎字符串误判为 RN 样式。最小失败输入为上述生成文件的 JS 字符串及真实阅读器的 RN 值导入；沿用原静态扫描文件，不新加 guard/豁免业务组件。该文件测试执行 0.806 秒，群聊阅读器文件 0.120 秒。
+
+本工作树 Metro `8081` 的归属与 native fingerprint 核对通过（global / mock）。iOS 浅色与 Android 深色实际打开 10,001 行 large.json，看到截断提示、规范代码字号；查找 9999 后跳至第 10,000 行，公共输入组件能输入并正确统计 1/1，关闭返回原任务。iOS 是 C595F130-633C-482D-B08B-D03D195367EF；Android 是插件设备 2CFB5602-E3B5-4C07-A0BF-22C4CF344843 / 精确 AVD 核验后的 emulator-5554。截图：[iOS](ci-typography-ios-search.jpg)、[Android](ci-typography-android-search.jpg)。这只是本轮改动验收，不替代原文明确的完整来源、Windows、平板等补充缺口。仅用原合成 mock，未创建真实任务或伙伴。两端 App、模拟器和本任务 Metro 正常退出，保留数据。

@@ -1216,7 +1216,6 @@
     "clipboardSyncSkipped": "此格式暂不支持剪贴板同步，已略之",
     "clipboardSyncTooLarge": "内容逾剪贴板同步之大小上限，已略之",
     "clipboardSyncPermission": "剪贴板同步须粘贴之权，授之后归此窗口即复",
-    "clipboardSyncWaiting": "远方之机的剪贴板暂不能访问（或已锁定屏幕），解锁后将自动续同步。",
     "lockingOnExit": "方锁定此机…",
     "idleLock": "闲置后断连并锁定屏幕",
     "idleNever": "永不",

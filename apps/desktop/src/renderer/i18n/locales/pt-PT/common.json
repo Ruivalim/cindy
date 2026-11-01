@@ -1245,7 +1245,6 @@
     "clipboardSyncSkipped": "Este formato não é suportado pela sincronização da área de transferência e foi ignorado.",
     "clipboardSyncTooLarge": "O conteúdo excede o limite de tamanho da sincronização da área de transferência e foi ignorado.",
     "clipboardSyncPermission": "A sincronização da área de transferência precisa de acesso para colar. Permita-o e regresse a esta janela para retomar.",
-    "clipboardSyncWaiting": "A área de transferência do computador remoto não está disponível neste momento (pode estar bloqueado). A sincronização será retomada automaticamente.",
     "lockingOnExit": "A bloquear o computador…",
     "idleLock": "Desligar e bloquear por inatividade",
     "idleNever": "Nunca",

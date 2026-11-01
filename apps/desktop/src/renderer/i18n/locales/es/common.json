@@ -1245,7 +1245,6 @@
     "clipboardSyncSkipped": "Este formato no es compatible con la sincronización del portapapeles y se omitió.",
     "clipboardSyncTooLarge": "El contenido excede el límite de tamaño de sincronización del portapapeles y se omitió.",
     "clipboardSyncPermission": "La sincronización del portapapeles necesita acceso para pegar. Permítalo y luego regrese a esta ventana para continuar.",
-    "clipboardSyncWaiting": "El portapapeles de la computadora remota no está disponible en este momento (puede que esté bloqueado). La sincronización se reanuda automáticamente.",
     "lockingOnExit": "Bloqueando computadora…",
     "idleLock": "Desconectar y bloquear cuando esté inactivo",
     "idleNever": "Nunca",

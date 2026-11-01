@@ -54,13 +54,26 @@ describe('remote file preview pager wiring', () => {
     expect(textPage.indexOf(sourceList![0])).toBeGreaterThan(unavailableBranch);
   });
 
-  it('reserves horizontal gestures for the PDF WebView', () => {
-    expect(source).toContain("current.previewKind !== 'pdf'");
+  it('reserves horizontal gestures for the PDF WebView only where PDFs preview inline', () => {
+    expect(source).toContain('const PDF_PREVIEWS_INLINE = pdfPreviewsInline(Platform.OS);');
+    expect(source).toContain("!(current.previewKind === 'pdf' && PDF_PREVIEWS_INLINE)");
+  });
+
+  it('Android 的 PDF 不挂 WebView、不取件,直接给「导出 / 分享」占位页', () => {
+    // Android WebView 不渲染 PDF:以前取回后塞进 WebView 只得到空白页。
+    const inlineBranch = source.indexOf("} else if (item.previewKind === 'pdf' && PDF_PREVIEWS_INLINE) {");
+    const androidBranch = source.indexOf("} else if (item.previewKind === 'pdf') {");
+    expect(inlineBranch).toBeGreaterThanOrEqual(0);
+    expect(androidBranch).toBeGreaterThan(inlineBranch);
+    const androidContent = source.slice(androidBranch, source.indexOf('} else if (avKind) {', androidBranch));
+    expect(androidContent).toContain("<UnsupportedPage item={item} onDownload={onDownload} reason={t('files.preview.androidPdfHint')} />");
+    expect(androidContent).not.toContain('PdfPreviewPage');
+    expect(androidContent).not.toContain('<WebView');
   });
 
   it('HTML 渲染态同样让出外层横滑,让内层 WebView 能横向平移', () => {
     // 固定宽度布局 / 放大后需要横向平移,pager 抢走手势就永远看不到超出视口的内容。
-    expect(source).toContain("scrollEnabled={current.previewKind !== 'pdf' && htmlPanPageKey !== current.key && markdownPagerPageKey !== current.key}");
+    expect(source).toContain("scrollEnabled={!(current.previewKind === 'pdf' && PDF_PREVIEWS_INLINE) && htmlPanPageKey !== current.key && markdownPagerPageKey !== current.key}");
     const markdownReader = readSource('src/session/MarkdownFileReader.tsx');
     expect(markdownReader).toContain('injectedJavaScript={onPageSwipe ? MARKDOWN_FILE_PAGER_SCRIPT : undefined}');
     expect(markdownReader).toContain('onMessage={onPageSwipe ? handleMessage : undefined}');

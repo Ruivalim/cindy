@@ -197,12 +197,15 @@ export class RoutineEngine {
       }
     }
     // Repair one-shots that already fired before completion disabled them: they stay enabled but
-    // nothing can fire them again. Needs a delivered success so an unfired or never-run one-shot
-    // (for example one resumed after its time passed) is left alone, as are suspended Bots.
+    // nothing can fire them again. Needs a delivered success as the latest run so an unfired or
+    // never-run one-shot (for example one resumed after its time passed) and a one-shot whose
+    // last attempt failed are left alone, as are suspended Bots.
     for (const routine of this.state.routines) {
       if (!routine.enabled || routine.builtin || this.blockedBots.has(routine.botId)) continue;
       if (!oneShotsConsumed(this.state, routine)) continue;
-      if (!this.state.runs.some(run => run.routineId === routine.id && run.status === "success" && run.delivery?.status !== "failed")) continue;
+      // The latest attempt decides: an older success must not hide a later failed or interrupted run.
+      const latest = this.state.runs.findLast(run => run.routineId === routine.id);
+      if (latest?.status !== "success" || latest.delivery?.status === "failed") continue;
       routine.enabled = false;
       routine.revision += 1;
       routine.updatedAt = this.deps.now();

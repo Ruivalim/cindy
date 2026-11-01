@@ -4718,7 +4718,10 @@ describe('AgentIslandService native publishing', () => {
     }
   });
 
-  it.each([false, true])('keeps scheduled completions silent on source and remote devices (oldUnread=%s)', async oldUnread => {
+  // B2B completion must not reach the remote desktop toast callback, even if
+  // an older owner reply keeps the session unread. The same silent relay state
+  // also gates the renderer's Feishu/mobile notification callback.
+  it.each([false, true].flatMap(oldUnread => ['scheduled', 'b2b'].map(origin => ({ oldUnread, origin }))))('keeps internal completions silent on source and remote devices (%j)', async ({ oldUnread, origin }) => {
     vi.useFakeTimers();
     const { AgentIslandService } = await import('../service.js');
     const sourcePublish = vi.fn((state: AgentIslandDisplayState) => state.visible);
@@ -4747,13 +4750,17 @@ describe('AgentIslandService native publishing', () => {
         source.handleAgentEvent(meta, doneEvent());
         await vi.advanceTimersByTimeAsync(2000);
       }
-      source.handleScheduleEvent({ type: 'silenced', scheduleId: 'schedule', runId: 'run', sessionId: meta.sessionId });
+      if (origin === 'scheduled') source.handleScheduleEvent({ type: 'silenced', scheduleId: 'schedule', runId: 'run', sessionId: meta.sessionId });
       source.handleUserPrompt(meta, 'Scheduled check');
       await vi.advanceTimersByTimeAsync(2000);
       sourceSound.mockClear(); remoteSound.mockClear(); desktopEvent.mockClear();
-      source.handleAgentEvent(meta, doneEvent());
-      source.handleScheduleEvent({ type: 'completed', scheduleId: 'schedule', runId: 'run', sessionId: meta.sessionId, silenced: true });
+      source.handleAgentEvent(meta, { ...doneEvent(), ...(origin === 'b2b' ? { agentMeta: { botPrivateReply: true } } : {}) });
+      if (origin === 'scheduled') source.handleScheduleEvent({ type: 'completed', scheduleId: 'schedule', runId: 'run', sessionId: meta.sessionId, silenced: true });
       await vi.advanceTimersByTimeAsync(0);
+      // With no old unread, the quiet completion drops out of the activity list.
+      // Otherwise retain the old unread, explicitly marking this completion silent.
+      if (oldUnread) expect(source.getSessionActivitySnapshot(meta.sessionId)?.completionNotification).toBe('silent');
+      else expect(source.getSessionActivitySnapshot(meta.sessionId)?.attention).not.toBe(true);
       expect(sourceSound).not.toHaveBeenCalled();
       expect(desktopEvent).not.toHaveBeenCalled();
       expect(remoteSound).not.toHaveBeenCalled();

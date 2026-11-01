@@ -689,7 +689,8 @@ export function isToolResultFailureLike(descriptor: ToolUseDescriptor, result: s
 /** 结果正文是「内容」的工具(读文件 / 搜索 / 网页):对其输出跑全文错误关键词匹配没有意义。 */
 function isContentOutputDescriptor(descriptor: ToolUseDescriptor): boolean {
   if (descriptor.kind === 'file') return descriptor.action === 'read';
-  return descriptor.kind === 'search' || descriptor.kind === 'web';
+  return descriptor.kind === 'search' || descriptor.kind === 'web'
+    || descriptor.kind === 'mcp' || descriptor.kind === 'dynamic';
 }
 
 /**
@@ -850,7 +851,7 @@ function isErrorRecord(value: string): boolean {
     const parsed = JSON.parse(value) as unknown;
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return false;
     const record = parsed as Record<string, unknown>;
-    if (record.ok === false || record.success === false) return true;
+    if (record.ok === false || record.success === false || record.isError === true || record.is_error === true) return true;
     const status = typeof record.status === 'string' ? record.status.toLowerCase() : '';
     if (status === 'error' || status === 'failed' || status === 'failure') return true;
     return ['error', 'errors', 'exception', 'stderr'].some((key) => {

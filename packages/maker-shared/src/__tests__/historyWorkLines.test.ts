@@ -84,19 +84,27 @@ describe('projectHistoryWorkLines', () => {
   });
 
   it('lets a line spend its whole byte share without dropping the oldest of five', () => {
-    const wideRow = (pathLength: number) => tool('file_change', {
+    // The id length is the 1-byte knob: a path character costs 4 bytes, so sweeping only
+    // the path cannot land on the budget and the fixture would miss the failing byte.
+    const id = (length: number) => `cw${'0'.repeat(length)}`;
+    const wideRow = (pathLength: number, idLength: number, index = 1) => tool('file_change', {
       changes: [{ path: 'a'.repeat(pathLength), kind: { type: 'update', move_path: 'b'.repeat(pathLength) }, diff: '+x\n'.repeat(400) }],
-    });
-    const lineBytes = (pathLength: number) => Buffer.byteLength(JSON.stringify(projectHistoryWorkLines([wideRow(pathLength)], true)[0]), 'utf8');
-    // Sweep for the widest line that still fits one share: only the cut form of a long path
-    // fills it, so a shorter input cannot stand in for a maximal line.
-    let widest = { pathLength: 1, bytes: 0 };
+    }, { clientId: id(idLength) + String(index) });
+    const lineBytes = (pathLength: number, idLength: number) =>
+      Buffer.byteLength(JSON.stringify(projectHistoryWorkLines([wideRow(pathLength, idLength)], true)[0]), 'utf8');
+    // Sweep for a line that spends its whole share: only the cut form of a long path fills
+    // it, so a shorter input cannot stand in for a maximal line.
+    let widest = { pathLength: 1, idLength: 1, bytes: 0 };
     for (let pathLength = 1; pathLength <= 400; pathLength += 1) {
-      const bytes = lineBytes(pathLength);
-      if (bytes <= HISTORY_WORK_LINE_MAX_BYTES && bytes > widest.bytes) widest = { pathLength, bytes };
+      for (let idLength = 1; idLength <= 8; idLength += 1) {
+        const bytes = lineBytes(pathLength, idLength);
+        if (bytes <= HISTORY_WORK_LINE_MAX_BYTES && bytes > widest.bytes) widest = { pathLength, idLength, bytes };
+      }
     }
-    expect(widest.bytes).toBeGreaterThan(HISTORY_WORK_LINE_MAX_BYTES - 16);
-    const rows = Array.from({ length: HISTORY_WORK_LINE_LIMIT }, () => wideRow(widest.pathLength));
+    // The fixture spends the share exactly, so the old share (one byte more) overflows the
+    // window and the guard drops the oldest line.
+    expect(widest.bytes).toBe(HISTORY_WORK_LINE_MAX_BYTES);
+    const rows = Array.from({ length: HISTORY_WORK_LINE_LIMIT }, (_entry, index) => wideRow(widest.pathLength, widest.idLength, index + 1));
     const lines = projectHistoryWorkLines(rows, true);
     // Five lines that each spend the whole share still fit the window, so none is dropped.
     expect(lines).toHaveLength(HISTORY_WORK_LINE_LIMIT);

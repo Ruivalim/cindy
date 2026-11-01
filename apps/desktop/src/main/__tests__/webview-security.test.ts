@@ -308,7 +308,7 @@ describe('installBrowserGuestHandlers(main-owned popup)', () => {
   });
 
   // 测试价值
-  // - 生产入口与可观察结果：installBrowserGuestHandlers 的 createWindow 回调；即使 Electron 没给 child WebContents，目标链接仍作为 RSB 标签投递且回调不抛错。
+  // - 生产入口与可观察结果：installBrowserGuestHandlers 的 createWindow 回调；即使 Electron 没给 child WebContents，目标链接仍作为 RSB 标签投递、回调不抛错且 opener 保持打开。
   // - Bug／规则依据：#7910；Electron 从链接触发的新窗口路径允许 createWindow 收到缺省 guest。
   // - 现有覆盖缺口：已有测试只传入 Electron 预创建的 popup WebContents。
   // - 最小失败输入：HTTP(S) window-open 回调后调用 createWindow({})。
@@ -328,6 +328,7 @@ describe('installBrowserGuestHandlers(main-owned popup)', () => {
 
     expect(response.action).toBe('allow');
     expect(response.createWindow({})).toBe(opener);
+    expect(opener.close).not.toHaveBeenCalled();
     expect(nativeSurfaceMocks.create).not.toHaveBeenCalled();
     expect(host.send).toHaveBeenCalledWith(RSB_BROWSER_POPUP_CHANNEL, {
       url: 'https://x.com/i/jf/onboarding/web?mode=login',

@@ -50,8 +50,11 @@ frontmatter `name + description` 的召回作用；`manual.items` 只是插件�
 - **命中后不绕开插件。** 实时详情确认插件能完成当前步骤时，Agent 用插件完成，不为省事改用
   本机命令行或其他直连方式另起一套设备、浏览器会话或账号；只有插件不支持的步骤另行处理，
   且仍作用于插件管理的同一对象。用户明确指定做法（如点名用 `adb`／某台 AVD）时以用户为准，
-  不能让 Cindy 比原生 harness 更难用。这条是 Host 前导里的宿主规则，判断依据是 `ghost_info`
-  的实时工具，不是作者 `recall`。（2026-10-31：Agent 已命中设备模拟器插件，仍用 SDK
+  不能让 Cindy 比原生 harness 更难用。判断依据是 `ghost_info` 的实时工具，不是作者 `recall`。
+  同一句宿主规则（`GHOST_NO_BYPASS_RULE`）放两处：花名册前导，以及 `ghost_info` 工具说明。
+  Agent 往往在查插件之前就决定了用命令行，所以规则必须在动手前可见：工具按需加载时只有
+  system 段的前导能挡住；没有花名册的任务（伙伴、开始时没有可见插件、缺工作目录）只能靠
+  插件网关常驻的 `ghost_info` 说明。（2026-10-31：Agent 已命中设备模拟器插件，仍用 SDK
   `emulator` 起了插件外的安卓模拟器，窗口弹在桌面而不在任务侧栏。）
 - **`ghost_info` 与 `ghost_list` 是并列查询方式。** 已知 id 时用 `ghost_info` 精准现查
   单条；未命中或需要全量实时回查时用 `ghost_list`。两者都返回完整 `CindyGhostInfo`

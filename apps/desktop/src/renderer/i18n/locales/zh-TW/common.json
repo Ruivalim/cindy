@@ -1337,7 +1337,7 @@
     },
     "passiveCorrupt": {
       "title": "共享資料庫無法復原",
-      "description": "共享資料庫目前由其他執行個體使用，Cindy 不會在其執行期間自動復原或修改 schema。請關閉共用該 userData 的 passive 執行個體後重試，或改用 --isolated。"
+      "description": "目前以唯讀／共享模式執行，Cindy 不會自動復原或修改該共享資料庫。若另有執行個體使用同一份 userData，請先關閉後重試；也可改用 --isolated 啟動。"
     },
     "databaseCleanup": {
       "interruptedTitle": "資料庫清理中斷",

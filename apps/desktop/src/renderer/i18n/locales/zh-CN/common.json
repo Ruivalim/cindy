@@ -1337,7 +1337,7 @@
     },
     "passiveCorrupt": {
       "title": "共享数据库无法恢复",
-      "description": "共享数据库当前由其它实例使用，Cindy 不会在其运行期间自动恢复或修改 schema。请关闭共享该 userData 的 passive 实例后重试，或改用 --isolated。"
+      "description": "当前以只读／共享模式运行，Cindy 不会自动恢复或修改该共享数据库。若另有实例在使用同一份 userData，请先关闭后重试；也可改用 --isolated 启动。"
     },
     "databaseCleanup": {
       "interruptedTitle": "数据库清理中断",

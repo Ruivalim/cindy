@@ -1350,7 +1350,7 @@
     },
     "passiveCorrupt": {
       "title": "Shared database can't be recovered",
-      "description": "The shared database is in use by another instance, so Cindy will not automatically recover or modify its schema while that instance is running. Close the passive instance sharing this userData and retry, or use --isolated."
+      "description": "Cindy is running in read-only / shared mode and will not automatically recover or modify this shared database. If another instance uses the same userData, close it and retry, or start with --isolated."
     },
     "databaseCleanup": {
       "interruptedTitle": "Database Cleanup Was Interrupted",

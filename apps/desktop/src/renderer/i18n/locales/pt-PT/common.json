@@ -1368,7 +1368,7 @@
     },
     "passiveCorrupt": {
       "title": "Não foi possível recuperar a base de dados partilhada",
-      "description": "A base de dados partilhada está a ser utilizada por outra instância, pelo que o Cindy não irá recuperar nem modificar o esquema automaticamente enquanto essa instância estiver em execução. Feche a instância passiva que partilha este userData e tente novamente, ou utilize --isolated."
+      "description": "O Cindy está a ser executado em modo só de leitura ou partilhado e não irá recuperar nem modificar automaticamente esta base de dados partilhada. Se outra instância utilizar os mesmos userData, feche-a e tente novamente, ou inicie com --isolated."
     },
     "corrupt": {
       "title": "Não é possível abrir a base de dados local",

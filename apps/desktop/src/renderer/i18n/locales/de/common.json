@@ -1350,7 +1350,7 @@
     },
     "passiveCorrupt": {
       "title": "Gemeinsame Datenbank kann nicht wiederhergestellt werden",
-      "description": "Die gemeinsame Datenbank wird von einer anderen Instanz verwendet. Cindy stellt das Schema daher nicht automatisch wieder her und ändert es nicht, solange diese Instanz läuft. Schließe die passive Instanz, die dieses userData teilt, und versuche es erneut, oder verwende --isolated."
+      "description": "Cindy läuft im schreibgeschützten bzw. gemeinsamen Modus und stellt diese gemeinsame Datenbank nicht automatisch wieder her und ändert sie nicht. Verwendet eine andere Instanz dieselben userData, schließe sie und versuche es erneut, oder starte mit --isolated."
     },
     "corrupt": {
       "title": "Lokale Datenbank kann nicht geöffnet werden",

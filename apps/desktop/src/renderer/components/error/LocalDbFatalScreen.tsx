@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useUpdateStatus } from '@/hooks/useUpdateStatus';
 import { resolveLocalDbFatalView } from './localDbFatalView';
@@ -30,6 +31,8 @@ export function LocalDbFatalScreen({
   const { status, progress } = useUpdateStatus();
   // 点了「重启并安装更新」后应用即将退出重启，期间锁住按钮防止重复触发。
   const [installing, setInstalling] = useState(false);
+  // 复制失败（无剪贴板权限、Wayland 写入落空等）时展开技术细节，用户仍可手动选中复制。
+  const [copyFailed, setCopyFailed] = useState(false);
 
   const view = resolveLocalDbFatalView(status, code);
 
@@ -112,24 +115,25 @@ export function LocalDbFatalScreen({
               </p>
             )}
             {(view === 'corrupt' || view === 'init-failed') && (message || code) && (
-              <button
-                type="button"
-                className="text-12 text-[var(--text-tertiary)] underline transition-colors hover:text-[var(--text-secondary)]"
+              <Button
+                variant="secondary"
+                size="sm"
                 style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
                 onClick={() => {
                   const text = [code, message].filter(Boolean).join('\n');
-                  void navigator.clipboard?.writeText(text).catch(() => {});
+                  // 经主进程写入并回读确认；失败时不静默，展开下方细节供手动复制。
+                  void window.electronAPI.copyTextToClipboard({ text }).then(() => setCopyFailed(false)).catch(() => setCopyFailed(true));
                 }}
               >
                 {t('localDbFatal.corrupt.copy')}
-              </button>
+              </Button>
             )}
             {(message || code) && (
-              <details className="mt-1 w-full">
+              <details className="mt-1 w-full" open={copyFailed || undefined}>
                 <summary className="cursor-pointer text-12 text-[var(--text-tertiary)] transition-colors hover:text-[var(--text-secondary)]">
                   {t('localDbFatal.details')}
                 </summary>
-                <pre className="mt-2 max-h-40 overflow-auto rounded-lg bg-[var(--surface-chip)] p-3 font-mono text-11 leading-relaxed whitespace-pre-wrap break-all text-[var(--text-secondary)]">
+                <pre className="mt-2 max-h-40 select-text overflow-auto rounded-lg bg-[var(--surface-chip)] p-3 font-mono text-11 leading-relaxed whitespace-pre-wrap break-all text-[var(--text-secondary)]">
                   {[code, message].filter(Boolean).join('\n')}
                 </pre>
               </details>

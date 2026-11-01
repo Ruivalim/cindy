@@ -1337,7 +1337,7 @@
     },
     "passiveCorrupt": {
       "title": "共有データベースを復旧できません",
-      "description": "共有データベースは別のインスタンスが使用中のため、Cindy はそのインスタンスの実行中にスキーマを自動復旧・変更しません。この userData を共有している passive インスタンスを閉じてから再試行するか、--isolated を使用してください。"
+      "description": "Cindy は読み取り専用／共有モードで動作しており、この共有データベースを自動で復旧・変更しません。同じ userData を使う別のインスタンスがある場合は閉じてから再試行するか、--isolated で起動してください。"
     },
     "databaseCleanup": {
       "interruptedTitle": "データベースのクリーンアップが中断されました",

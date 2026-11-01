@@ -1337,7 +1337,7 @@
     },
     "passiveCorrupt": {
       "title": "共享資料庫不可復原",
-      "description": "共享資料庫方為他實例所用，Cindy 於其運行之際，不自行復原或改動 schema。請先關閉共用此 userData 之 passive 實例而重試，或改用 --isolated。"
+      "description": "今以唯讀／共享之式運行，Cindy 不自行復原或改動此共享資料庫。若另有實例共用同一 userData，請先關閉而重試，或改以 --isolated 啟動。"
     },
     "corrupt": {
       "title": "本地資料庫不可開",

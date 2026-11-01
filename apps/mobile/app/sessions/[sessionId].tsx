@@ -2169,8 +2169,7 @@ function SessionScreenContent({ beforeSessionSwitchRef, newSessionActionRef }: S
   // 点选的 skill 不被白名单拦截误分流到 learn:start。
   const pendingSkillSelectionRef = useRef<{ name: string; sid: string } | null>(null);
   const extraDirBrowseSeqRef = useRef(0);
-  const autoRetrySyncStateRef = useRef<{ identity: string; attempt: number;
-  } | null>(null);
+  const autoRetrySyncStateRef = useRef<{ identity: string; attempt: number } | null>(null);
   const loadedRouteFocusKeyRef = useRef<string | null>(null);
   const appliedRouteFocusKeyRef = useRef<string | null>(null);
   const appliedRouteComposerFocusKeyRef = useRef<string | null>(null);
@@ -4306,7 +4305,7 @@ function SessionScreenContent({ beforeSessionSwitchRef, newSessionActionRef }: S
       replaceComposerDraft('');
       discardRecoveredAttachments(dropped);
     },
-    stashDraft: (prepared) => {
+    stashDraft: prepared => {
       // 创建期间发出的后续消息必须一起带回新建页(review P1):它们此刻在 outbox 里,
       // 而下一行 dismiss 会连同合成会话行一起删掉——会话页 unmount 时 cleanup 会把它们
       // 写进那个已经不存在的会话的草稿,用户在新建页看不到、也再也找不回来。

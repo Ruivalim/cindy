@@ -6161,9 +6161,9 @@ function MarkdownBodyBase({
   const imageRendersPreview = useCallback((inline: Extract<MobileMarkdownInline, { type: 'image' }>) =>
       isMobileMarkdownImageDirectUrl(inline.url) || managedImagePreviewUrl(inline.url) !== null, [managedImagePreviewUrl]);
   // 图片预览内嵌 View，不能放进 Android selectable Text 或 iOS UITextView。
-  const inlinesSelectable = useCallback((inlines: readonly MobileMarkdownInline[]) =>
+  const inlinesSelectable = useCallback((inlines: readonly MobileMarkdownInline[]) => (
       selectable === true
-    && !inlines.some((inline) => inline.type === 'image' && imageRendersPreview(inline)
+    && !inlines.some((inline) => inline.type === 'image' && imageRendersPreview(inline))
   ), [imageRendersPreview, selectable]);
   // 正文 Markdown 图片(![](url) / 安全 <img>)点击后走既有媒体 payload 查看器,与附件图片同一条链路。
   const openMarkdownImage = useCallback((url: string, alt?: string) => {

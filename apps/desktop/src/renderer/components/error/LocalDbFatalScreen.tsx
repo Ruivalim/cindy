@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useUpdateStatus } from '@/hooks/useUpdateStatus';
+import { localDbFatalDetailsText } from '../../../shared/localDbFatalDetails';
 import { resolveLocalDbFatalView } from './localDbFatalView';
 
 /**
@@ -120,7 +121,7 @@ export function LocalDbFatalScreen({
                 size="sm"
                 style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
                 onClick={() => {
-                  const text = [code, message].filter(Boolean).join('\n');
+                  const text = localDbFatalDetailsText({ code, message });
                   // 经主进程写入并回读确认；失败时不静默，展开下方细节供手动复制。
                   void window.electronAPI.copyTextToClipboard({ text }).then(() => setCopyFailed(false)).catch(() => setCopyFailed(true));
                 }}
@@ -134,7 +135,7 @@ export function LocalDbFatalScreen({
                   {t('localDbFatal.details')}
                 </summary>
                 <pre className="mt-2 max-h-40 select-text overflow-auto rounded-lg bg-[var(--surface-chip)] p-3 font-mono text-11 leading-relaxed whitespace-pre-wrap break-all text-[var(--text-secondary)]">
-                  {[code, message].filter(Boolean).join('\n')}
+                  {localDbFatalDetailsText({ code, message })}
                 </pre>
               </details>
             )}

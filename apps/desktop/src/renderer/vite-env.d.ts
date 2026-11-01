@@ -6855,48 +6855,6 @@ interface ElectronAPI {
       defaultAutoSnapshotEnabled: boolean;
     }>;
 
-    /**
-     * 智能通讯录(maker-contacts)— 设置页管理 UI 数据通道。
-     * DTO 用 unknown 透传, renderer 在 lib/contactsService.ts 收敛为
-     * @cindy/maker-core 的 contacts 类型(type-only import)。
-     */
-    contacts: {
-      settingsGet: () => Promise<{ enabled: boolean; isCustomized: boolean }>;
-      settingsSet: (enabled: boolean) => Promise<{ enabled: boolean; codexMcpRefreshed?: boolean }>;
-      syncStatusGet: () => Promise<unknown>;
-      syncEnabledSet: (enabled: boolean) => Promise<unknown>;
-      syncNow: () => Promise<unknown>;
-      list: (opts?: unknown) => Promise<unknown[]>;
-      get: (id: string) => Promise<unknown>;
-      create: (input: unknown) => Promise<unknown>;
-      update: (id: string, patch: unknown) => Promise<unknown>;
-      delete: (id: string) => Promise<{ deleted: boolean }>;
-      merge: (targetId: string, sourceId: string) => Promise<unknown>;
-      resolve: (value: string, opts?: unknown) => Promise<unknown[]>;
-      search: (query: string, opts?: unknown) => Promise<unknown[]>;
-      stats: () => Promise<{ people: number; orgs: number; pending: number; groups: number }>;
-      addIdentity: (contactId: string, input: unknown) => Promise<unknown>;
-      removeIdentity: (identityId: string) => Promise<{ removed: boolean }>;
-      appendEvent: (contactId: string, input: unknown) => Promise<unknown>;
-      deleteEvent: (eventId: string) => Promise<{ deleted: boolean }>;
-      addRelation: (fromId: string, input: unknown) => Promise<unknown>;
-      removeRelation: (relationId: string) => Promise<{ removed: boolean }>;
-      groupsList: () => Promise<unknown[]>;
-      groupsCreate: (name: string, description?: string) => Promise<unknown>;
-      groupsUpdate: (groupId: string, patch: unknown) => Promise<unknown>;
-      groupsDelete: (groupId: string) => Promise<{ deleted: boolean }>;
-      groupsSetMembers: (
-        groupId: string,
-        payload: { add?: string[]; remove?: string[] },
-      ) => Promise<{ added: number; removed: number }>;
-      resetAll: () => Promise<{ removedCount: number }>;
-      systemRead: () => Promise<unknown[]>;
-      parseVcf: (text: string) => Promise<unknown[]>;
-      import: (records: unknown[], opts?: { groupId?: string }) => Promise<unknown>;
-      onChanged: (cb: () => void) => () => void;
-      onSyncStatusChanged: (cb: (status: unknown) => void) => () => void;
-    };
-
     /** Codex app-server 当前进程启动冻结的鉴权注入方式(oauth-bearer = 走订阅 / env-key = 走网关 / provider-oauth = proxy 注入供应商 OAuth) */
     codexRuntimeRouteGet: () => Promise<{
       authInjection: 'oauth-bearer' | 'env-key' | 'provider-oauth';

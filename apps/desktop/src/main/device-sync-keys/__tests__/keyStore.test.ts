@@ -4,12 +4,12 @@ import os from 'node:os';
 import path from 'node:path';
 
 import {
-  ContactsSyncKeyStore,
-  isContactsSyncSecureStorageAvailable,
+  DeviceSyncKeyStore,
+  isDeviceSyncSecureStorageAvailable,
 } from '../keyStore.js';
-import { generateContactsSyncIdentity } from '../crypto.js';
+import { generateDeviceSyncIdentity } from '../crypto.js';
 
-describe('contacts sync key store', () => {
+describe('device sync key store', () => {
   const tempDirs: string[] = [];
 
   afterEach(() => {
@@ -19,10 +19,10 @@ describe('contacts sync key store', () => {
   function createStore(options?: { encryptionAvailable?: boolean; file?: string }) {
     const dir = options?.file
       ? path.dirname(options.file)
-      : fs.mkdtempSync(path.join(os.tmpdir(), 'cindy-contacts-sync-key-'));
+      : fs.mkdtempSync(path.join(os.tmpdir(), 'cindy-device-sync-key-'));
     if (!options?.file) tempDirs.push(dir);
     const file = options?.file ?? path.join(dir, 'key.enc');
-    const store = new ContactsSyncKeyStore({
+    const store = new DeviceSyncKeyStore({
       filePath: () => file,
       isEncryptionAvailable: () => options?.encryptionAvailable ?? true,
       encrypt: (text) => Buffer.from(`encrypted:${text}`, 'utf8'),
@@ -36,7 +36,7 @@ describe('contacts sync key store', () => {
   }
 
   function createSharedFile(): string {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cindy-contacts-sync-key-shared-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cindy-device-sync-key-shared-'));
     tempDirs.push(dir);
     return path.join(dir, 'key.enc');
   }
@@ -56,8 +56,8 @@ describe('contacts sync key store', () => {
   it('首次绑定对端公钥，之后拒绝同 deviceId 换钥', async () => {
     const { store } = createStore();
     await store.prepare();
-    const first = generateContactsSyncIdentity().publicKey;
-    const second = generateContactsSyncIdentity().publicKey;
+    const first = generateDeviceSyncIdentity().publicKey;
+    const second = generateDeviceSyncIdentity().publicKey;
     await expect(store.pinPeerPublicKey('device-b', first)).resolves.toBe(true);
     await expect(store.pinPeerPublicKey('device-b', first)).resolves.toBe(false);
     await expect(store.pinPeerPublicKey('device-b', second)).rejects.toThrow(/identity changed/);
@@ -73,8 +73,8 @@ describe('contacts sync key store', () => {
     expect(secondStore.getIdentity()).toEqual(firstIdentity);
 
     // 两边此时都持有同一旧缓存；后写者仍须保留前一实例刚写入的 pin。
-    const peerB = generateContactsSyncIdentity().publicKey;
-    const peerC = generateContactsSyncIdentity().publicKey;
+    const peerB = generateDeviceSyncIdentity().publicKey;
+    const peerC = generateDeviceSyncIdentity().publicKey;
     await Promise.all([
       expect(firstStore.pinPeerPublicKey('device-b', peerB)).resolves.toBe(true),
       expect(secondStore.pinPeerPublicKey('device-c', peerC)).resolves.toBe(true),
@@ -94,7 +94,7 @@ describe('contacts sync key store', () => {
     const writerStore = createStore({ file }).store;
     await staleStore.prepare();
     await writerStore.prepare();
-    const peerKey = generateContactsSyncIdentity().publicKey;
+    const peerKey = generateDeviceSyncIdentity().publicKey;
 
     await expect(writerStore.pinPeerPublicKey('device-b', peerKey)).resolves.toBe(true);
     expect(staleStore.getPeerPublicKey('device-b')).toBeNull();
@@ -123,21 +123,21 @@ describe('contacts sync key store', () => {
 
   it('Linux basic_text 后端即使声称可加密也 fail closed', () => {
     expect(
-      isContactsSyncSecureStorageAvailable({
+      isDeviceSyncSecureStorageAvailable({
         platform: 'linux',
         encryptionAvailable: true,
         backend: 'basic_text',
       }),
     ).toBe(false);
     expect(
-      isContactsSyncSecureStorageAvailable({
+      isDeviceSyncSecureStorageAvailable({
         platform: 'linux',
         encryptionAvailable: true,
         backend: 'gnome_libsecret',
       }),
     ).toBe(true);
     expect(
-      isContactsSyncSecureStorageAvailable({
+      isDeviceSyncSecureStorageAvailable({
         platform: 'darwin',
         encryptionAvailable: true,
         backend: 'basic_text',
@@ -183,7 +183,7 @@ describe('contacts sync key store', () => {
     const { store, file } = createStore();
     await store.prepare();
     const identity = store.getIdentity();
-    const peerKey = generateContactsSyncIdentity().publicKey;
+    const peerKey = generateDeviceSyncIdentity().publicKey;
     const peers = Object.fromEntries(
       Array.from({ length: 1_000 }, (_, index) => [`device-${index}`, peerKey]),
     );
@@ -194,7 +194,7 @@ describe('contacts sync key store', () => {
     const before = fs.readFileSync(file, 'utf8');
 
     await expect(
-      store.pinPeerPublicKey('device-over-limit', generateContactsSyncIdentity().publicKey),
+      store.pinPeerPublicKey('device-over-limit', generateDeviceSyncIdentity().publicKey),
     ).rejects.toThrow(/peer limit exceeded/);
     expect(fs.readFileSync(file, 'utf8')).toBe(before);
 

@@ -123,8 +123,7 @@ frontmatter `name + description` 的召回作用；`manual.items` 只是插件�
 
 ### 3.2 注入位置（vendor-neutral，一份 formatter 两处消费）
 
-- **system 段（主通道）**：仿 Smart Contacts（`getContactsPromptState`）的接线
-  模式——`AgentDeps` 新增回调按 `{workingDir}` 取花名册文本，三 harness 各自在
+- **system 段（主通道）**：`AgentDeps` 新增回调按 `{workingDir}` 取花名册文本，三 harness 各自在
   会话装配点追加：
   - Claude Code：`buildQuery` → `systemPrompt.append`；
   - Codex：`startSession` → `developerInstructions`（HTTP proxy / OAuth WS /

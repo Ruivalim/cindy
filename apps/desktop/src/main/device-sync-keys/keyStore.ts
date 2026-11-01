@@ -1,5 +1,5 @@
 /**
- * 通讯录同步设备密钥的 owner-scoped 安全落盘。
+ * 插件电脑间同步设备密钥的 owner-scoped 安全落盘。
  *
  * 私钥和首次见到的对端公钥一起由 Electron safeStorage 加密；明文只存在于 main
  * 进程内存。对同一 deviceId 的公钥采用 TOFU pin：首次记录，之后变化即拒绝，
@@ -15,36 +15,37 @@ import path from 'node:path';
 import { getActiveAppSession, ownerScopedUserDataPath } from '../appSessionState.js';
 import { withCrossProcessLock } from '../device-link/crossProcessLock.js';
 import {
-  generateContactsSyncIdentity,
-  isValidContactsSyncPublicKey,
+  generateDeviceSyncIdentity,
+  isValidDeviceSyncPublicKey,
   publicKeyFromPrivate,
-  type ContactsSyncExportedIdentity,
+  type DeviceSyncExportedIdentity,
 } from './crypto.js';
 
 const STORE_VERSION = 1;
+// 文件名沿用最初的智能通讯录同步：改名会让已配对电脑生成新身份，对端的 TOFU pin 随即拒绝。
 const FILE_NAME = 'contacts-device-sync-key.v1.enc';
 const DEVICE_ID_PATTERN = /^[A-Za-z0-9._:-]{1,160}$/;
 const LOCK_WAIT_MS = 12_000;
 const MAX_PEER_PINS = 1_000;
 
-interface StoredContactsSyncKeys extends ContactsSyncExportedIdentity {
+interface StoredDeviceSyncKeys extends DeviceSyncExportedIdentity {
   version: typeof STORE_VERSION;
   peers: Record<string, string>;
 }
 
-export interface ContactsSyncKeyStoreDeps {
+export interface DeviceSyncKeyStoreDeps {
   filePath(): string | null;
   isEncryptionAvailable(): boolean;
   encrypt(plaintext: string): Buffer;
   decrypt(ciphertext: Buffer): string;
 }
 
-export class ContactsSyncKeyStore {
+export class DeviceSyncKeyStore {
   private loadedPath: string | null = null;
-  private data: StoredContactsSyncKeys | null = null;
+  private data: StoredDeviceSyncKeys | null = null;
   private generation = 0;
 
-  constructor(private readonly deps: ContactsSyncKeyStoreDeps = desktopDeps) {}
+  constructor(private readonly deps: DeviceSyncKeyStoreDeps = desktopDeps) {}
 
   /**
    * 首次读/建密钥可能等待另一个 Desktop 实例，必须 await，不能阻塞 Electron Main。
@@ -63,7 +64,7 @@ export class ContactsSyncKeyStore {
     this.assertOperationCurrent(file, generation);
   }
 
-  getIdentity(): ContactsSyncExportedIdentity {
+  getIdentity(): DeviceSyncExportedIdentity {
     const data = this.requireLoaded();
     return { publicKey: data.publicKey, privateKey: data.privateKey };
   }
@@ -83,8 +84,8 @@ export class ContactsSyncKeyStore {
    */
   async pinPeerPublicKey(deviceId: string, publicKey: string): Promise<boolean> {
     assertDeviceId(deviceId);
-    if (!isValidContactsSyncPublicKey(publicKey)) {
-      throw new Error('invalid contacts sync peer public key');
+    if (!isValidDeviceSyncPublicKey(publicKey)) {
+      throw new Error('invalid device sync peer public key');
     }
     const file = this.requireFile();
     const generation = this.selectFile(file);
@@ -97,11 +98,11 @@ export class ContactsSyncKeyStore {
       this.data = data;
       const current = data.peers[deviceId];
       if (current === publicKey) return false;
-      if (current) throw new Error('contacts sync peer identity changed');
+      if (current) throw new Error('device sync peer identity changed');
       if (Object.keys(data.peers).length >= MAX_PEER_PINS) {
-        throw new Error('contacts sync peer limit exceeded');
+        throw new Error('device sync peer limit exceeded');
       }
-      const next: StoredContactsSyncKeys = {
+      const next: StoredDeviceSyncKeys = {
         ...data,
         peers: { ...data.peers, [deviceId]: publicKey },
       };
@@ -120,10 +121,10 @@ export class ContactsSyncKeyStore {
     this.data = null;
   }
 
-  private requireLoaded(): StoredContactsSyncKeys {
+  private requireLoaded(): StoredDeviceSyncKeys {
     const file = this.requireFile();
     this.selectFile(file);
-    if (!this.data) throw new Error('contacts sync device key is not prepared');
+    if (!this.data) throw new Error('device sync device key is not prepared');
     return this.data;
   }
 
@@ -142,24 +143,24 @@ export class ContactsSyncKeyStore {
       this.deps.filePath() !== file ||
       !this.deps.isEncryptionAvailable()
     ) {
-      throw new Error('contacts sync key operation was invalidated');
+      throw new Error('device sync key operation was invalidated');
     }
   }
 
   private requireFile(): string {
     const file = this.deps.filePath();
-    if (!file) throw new Error('contacts sync requires an authenticated owner');
+    if (!file) throw new Error('device sync requires an authenticated owner');
     if (!this.deps.isEncryptionAvailable()) {
-      throw new Error('secure storage is unavailable for contacts sync');
+      throw new Error('secure storage is unavailable for device sync');
     }
     return file;
   }
 
   /** 调用方必须持有 file 对应的锁。 */
-  private readOrCreateLocked(file: string): StoredContactsSyncKeys {
+  private readOrCreateLocked(file: string): StoredDeviceSyncKeys {
     if (!fs.existsSync(file)) {
-      const identity = generateContactsSyncIdentity();
-      const created: StoredContactsSyncKeys = {
+      const identity = generateDeviceSyncIdentity();
+      const created: StoredDeviceSyncKeys = {
         version: STORE_VERSION,
         ...identity,
         peers: {},
@@ -171,18 +172,18 @@ export class ContactsSyncKeyStore {
       const encoded = fs.readFileSync(file, 'utf8');
       const plaintext = this.deps.decrypt(Buffer.from(encoded, 'base64'));
       const parsed: unknown = JSON.parse(plaintext);
-      if (!isStoredKeys(parsed)) throw new Error('invalid contacts sync key document');
+      if (!isStoredKeys(parsed)) throw new Error('invalid device sync key document');
       if (publicKeyFromPrivate(parsed.privateKey) !== parsed.publicKey) {
-        throw new Error('contacts sync public/private key mismatch');
+        throw new Error('device sync public/private key mismatch');
       }
       return parsed;
     } catch (error) {
-      throw new Error('stored contacts sync device key is unreadable', { cause: error });
+      throw new Error('stored device sync device key is unreadable', { cause: error });
     }
   }
 
   /** 调用方必须持有 file 对应的锁。 */
-  private persistLocked(file: string, data: StoredContactsSyncKeys): void {
+  private persistLocked(file: string, data: StoredDeviceSyncKeys): void {
     const temp = `${file}.${process.pid}.${randomUUID()}.tmp`;
     fs.mkdirSync(path.dirname(file), { recursive: true });
     try {
@@ -212,20 +213,20 @@ async function withKeyFileLock<T>(file: string, task: () => T): Promise<T> {
   await fsp.mkdir(path.dirname(file), { recursive: true });
   return withCrossProcessLock(
     `${file}.lock`,
-    { label: 'contacts-sync-key', waitMs: LOCK_WAIT_MS },
+    { label: 'device-sync-key', waitMs: LOCK_WAIT_MS },
     async (status) => {
       if (!status.held) {
-        throw new Error(`contacts sync key lock ${status.reason}`);
+        throw new Error(`device sync key lock ${status.reason}`);
       }
       return task();
     },
   );
 }
 
-function isStoredKeys(value: unknown): value is StoredContactsSyncKeys {
+function isStoredKeys(value: unknown): value is StoredDeviceSyncKeys {
   if (!isRecord(value) || value.version !== STORE_VERSION) return false;
   if (
-    !isValidContactsSyncPublicKey(value.publicKey) ||
+    !isValidDeviceSyncPublicKey(value.publicKey) ||
     typeof value.privateKey !== 'string' ||
     value.privateKey.length > 512 ||
     !isRecord(value.peers)
@@ -237,7 +238,7 @@ function isStoredKeys(value: unknown): value is StoredContactsSyncKeys {
     peers.length <= MAX_PEER_PINS &&
     peers.every(
       ([deviceId, publicKey]) =>
-        DEVICE_ID_PATTERN.test(deviceId) && isValidContactsSyncPublicKey(publicKey),
+        DEVICE_ID_PATTERN.test(deviceId) && isValidDeviceSyncPublicKey(publicKey),
     )
   );
 }
@@ -247,21 +248,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function assertDeviceId(deviceId: string): void {
-  if (!DEVICE_ID_PATTERN.test(deviceId)) throw new Error('invalid contacts sync device id');
+  if (!DEVICE_ID_PATTERN.test(deviceId)) throw new Error('invalid device sync device id');
 }
 
-const desktopDeps: ContactsSyncKeyStoreDeps = {
+const desktopDeps: DeviceSyncKeyStoreDeps = {
   filePath: () => (getActiveAppSession().dataOwnerId ? ownerScopedUserDataPath(FILE_NAME) : null),
-  isEncryptionAvailable: isDesktopContactsSyncSecureStorageAvailable,
+  isEncryptionAvailable: isDesktopDeviceSyncSecureStorageAvailable,
   encrypt: (plaintext) => safeStorage.encryptString(plaintext),
   decrypt: (ciphertext) => safeStorage.decryptString(ciphertext),
 };
 
-export const contactsSyncKeyStore = new ContactsSyncKeyStore();
+export const deviceSyncKeyStore = new DeviceSyncKeyStore();
 
-function isDesktopContactsSyncSecureStorageAvailable(): boolean {
+function isDesktopDeviceSyncSecureStorageAvailable(): boolean {
   try {
-    return isContactsSyncSecureStorageAvailable({
+    return isDeviceSyncSecureStorageAvailable({
       platform: process.platform,
       encryptionAvailable: safeStorage.isEncryptionAvailable(),
       backend:
@@ -272,7 +273,7 @@ function isDesktopContactsSyncSecureStorageAvailable(): boolean {
   }
 }
 
-export function isContactsSyncSecureStorageAvailable(options: {
+export function isDeviceSyncSecureStorageAvailable(options: {
   platform: NodeJS.Platform;
   encryptionAvailable: boolean;
   backend?: string;

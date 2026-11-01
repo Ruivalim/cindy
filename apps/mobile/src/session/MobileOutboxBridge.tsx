@@ -47,6 +47,7 @@ import {
   prepareMobileQueuedSessionReferences,
 } from "./sessionReferences";
 import { remoteSessionStore } from "./remoteSessionStore";
+import { unarchiveSessionAfterSend } from "./unarchiveAfterSend";
 import { cacheOutboxHistory } from "./outboxHistoryCache";
 import { validateOutboxResourceBinding } from './outboxResourceBinding';
 import { findRemoteHistoryView } from "./remoteHistoryViews";
@@ -291,7 +292,8 @@ export function MobileOutboxBridge() {
           guard();
         }
       },
-      enqueue: (r) => maker(r).input.enqueue(
+      enqueue: async (r) => {
+        const projection = await maker(r).input.enqueue(
           r.item.sessionId,
           r.prepared!,
           {
@@ -300,7 +302,11 @@ export function MobileOutboxBridge() {
               ? { expectedClearBoundaryMs: r.clearBoundaryMs }
               : {}),
           },
-        ),
+        );
+        // 电脑已接收这条消息(离线时是重连后才送达):在已归档任务里发消息即取消归档。
+        void unarchiveSessionAfterSend(r.item.sessionId, r.deviceId, invokeOwned(r));
+        return projection;
+      },
       cancel: async (r) => {
         const result = await invokeOwned(r)<{
           inputDeliveryCancelled?: boolean;

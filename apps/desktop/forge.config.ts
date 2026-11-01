@@ -24,6 +24,7 @@ import { preparePackagedNodePty } from './forge-node-pty';
 import { prunePackagedRuntime, prunePackagedMigrationSnapshots } from './forge-prune-runtime';
 import { copyRuntimeDependencyTrees as copyRuntimeTrees } from './forge-runtime-deps';
 import { packagedResourcesPath, stagePackagedThirdPartyNotices } from './forge-third-party-notices';
+import { stageMacPermissionLocales } from './forge-mac-locales';
 import {
   swiftTargetTriple,
   swiftTargetTriplesForForgeArch,
@@ -804,6 +805,8 @@ function extraResourcesForTarget(targetPlatform: string): string[] {
     'resources/cc-manager',
     'resources/anthropic-compat-proxy',
     'resources/remote-file-service',
+    // 自建中转单文件:「部署到我的服务器」经 SSH 上传到用户服务器运行。
+    'resources/device-link-relay',
     // .cindy 发布者/审核 Ed25519 公钥信任表(私钥永不进客户端)。
     'resources/ghost-trust.json',
     // 远端 pi manager bundle(Node 单例 daemon,SSH remote 会话的进程持有器)。
@@ -1981,6 +1984,9 @@ const config: ForgeConfig = {
       (buildPath, _electronVersion, platform, _arch, callback) => {
         try {
           prunePackagedMigrationSnapshots(packagedResourcesPath(buildPath, platform));
+          if (platform === 'darwin' || platform === 'mas') {
+            stageMacPermissionLocales(packagedResourcesPath(buildPath, platform));
+          }
           callback();
         } catch (err) {
           callback(err as Error);
@@ -2133,6 +2139,11 @@ const config: ForgeConfig = {
         },
         {
           entry: 'src/main/bot-import/openclawCronWorker.ts',
+          config: 'vite.contacts-sync-codec-worker.config.ts',
+          target: 'preload',
+        },
+        {
+          entry: 'src/main/performance-trace/traceRedactionWorker.ts',
           config: 'vite.contacts-sync-codec-worker.config.ts',
           target: 'preload',
         },

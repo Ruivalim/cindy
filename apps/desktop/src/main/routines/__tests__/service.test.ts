@@ -464,6 +464,43 @@ it('disables a previously exhausted import without dispatching, while ordinary m
   expect(mock.scheduler.runNow).not.toHaveBeenCalled();
   expect(mock.storage.insert).not.toHaveBeenCalled();
 });
+it('disables a one-shot reminder after it fires and is delivered, leaving no pending time', async () => {
+  vi.useFakeTimers();
+  await getRoutineEngine();
+  const routine = await routineTools.save('bot', {
+    name: 'Once', prompt: 'Remind me', enabled: true,
+    triggers: [{ id: 'once', kind: 'once', at: Date.now() + 2_000 }],
+  });
+  for (let i = 0; i < 10 && (await routineTools.list('bot'))[0]!.enabled; i++) await vi.advanceTimersByTimeAsync(1_000);
+  expect((await routineTools.list('bot'))[0]!.enabled).toBe(false);
+  expect((await routineTools.history('bot', routine.id))[0]!.status).toBe('success');
+  expect(mock.scheduler.runNow).toHaveBeenCalledOnce();
+  expect(mock.save.mock.calls.at(-1)![0].next).toEqual({});
+});
+
+it('keeps a one-shot reminder enabled when it is run by hand before its time', async () => {
+  const routine = await routineTools.save('bot', {
+    name: 'Once', prompt: 'Remind me', enabled: true,
+    triggers: [{ id: 'once', kind: 'once', at: Date.now() + 3_600_000 }],
+  });
+  await routineTools.runNow('bot', routine.id);
+  await vi.waitFor(async () => expect((await routineTools.history('bot', routine.id))[0]!.status).toBe('success'));
+  expect((await routineTools.list('bot'))[0]!.enabled).toBe(true);
+});
+
+it('keeps a one-shot reminder enabled when its fire fails, so the time is not lost', async () => {
+  vi.useFakeTimers();
+  await getRoutineEngine();
+  mock.scheduler.runNow.mockRejectedValueOnce(new Error('boom'));
+  const routine = await routineTools.save('bot', {
+    name: 'Once', prompt: 'Remind me', enabled: true,
+    triggers: [{ id: 'once', kind: 'once', at: Date.now() + 2_000 }],
+  });
+  for (let i = 0; i < 5; i++) await vi.advanceTimersByTimeAsync(1_000);
+  expect((await routineTools.history('bot', routine.id))[0]!.status).toBe('failed');
+  expect((await routineTools.list('bot'))[0]!.enabled).toBe(true);
+});
+
 it('keeps an unclassified teammate reminder audible when quiet is omitted', async () => {
   const reminder = await routineTools.save('bot', {
     name: 'Reminder', prompt: 'Remind me to rest', enabled: true,

@@ -11181,6 +11181,10 @@
         "deleteFailed": "沒能刪除，請稍後再試。",
         "deleteTitle": "刪除「{{name}}」？",
         "deleteBody": "刪除後夥伴不再使用這個技能，內容無法復原。之後需要時，可以在對話裡請它重新記下。",
+        "unsavedTitle": "尚有未儲存的修改",
+        "unsavedDescription": "離開後會捨棄這次對技能的修改。",
+        "discard": "放棄修改",
+        "continueEditing": "繼續編輯",
         "descriptionLabel": "什麼時候用",
         "bodyLabel": "做法"
       },

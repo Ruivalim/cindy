@@ -11227,6 +11227,10 @@
         "deleteFailed": "Couldn’t delete. Try again later.",
         "deleteTitle": "Delete “{{name}}”?",
         "deleteBody": "The teammate will stop using this skill and its content can’t be restored. If you need it later, ask it to remember the method again.",
+        "unsavedTitle": "Unsaved Changes",
+        "unsavedDescription": "Leaving will discard these changes to the skill.",
+        "discard": "Discard Changes",
+        "continueEditing": "Keep Editing",
         "descriptionLabel": "When to use it",
         "bodyLabel": "How to do it"
       },

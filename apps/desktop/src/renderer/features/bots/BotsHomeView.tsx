@@ -155,6 +155,7 @@ export function BotSettings({
   const memoryLeaveRef = useRef<(() => Promise<boolean>) | null>(null);
   const memoryBackRef = useRef<(() => Promise<boolean>) | null>(null);
   const capabilityBackRef = useRef<(() => Promise<boolean>) | null>(null);
+  const capabilityLeaveRef = useRef<(() => Promise<boolean>) | null>(null);
   const pageTitle =
     page === 'projects' ? t('bots.projects.title') : page === 'voice'
       ? t('bots.voiceMode.settingsTitle')
@@ -240,6 +241,7 @@ export function BotSettings({
     if (autosave.isDirty()) return false;
     if (!((await voiceLeaveRef.current?.()) ?? true)) return false;
     if (!((await memoryLeaveRef.current?.()) ?? true)) return false;
+    if (!((await capabilityLeaveRef.current?.()) ?? true)) return false;
     return (await routineLeaveRef.current?.()) ?? true;
   }, [autosave.flush, autosave.isDirty]);
   useEffect(() => {
@@ -268,7 +270,7 @@ export function BotSettings({
       settingsRowRefs.current.get(returnFocusRowRef.current)?.focus();
   }, [page]);
   const go = (next: typeof page) => {
-    if (!autosave.isDirty() && !routineLeaveRef.current && !memoryLeaveRef.current && !voiceLeaveRef.current) {
+    if (!autosave.isDirty() && !routineLeaveRef.current && !memoryLeaveRef.current && !voiceLeaveRef.current && !capabilityLeaveRef.current) {
       showPage(next);
       return;
     }
@@ -677,6 +679,7 @@ export function BotSettings({
               }}
               expanded={page === 'capabilities'}
               backRef={capabilityBackRef}
+              leaveRef={capabilityLeaveRef}
               // An older teammate computer rejects the unknown field; its switches stay read-only.
               onSystemSkillChange={target.kind === 'local' || target.skills ? (id, on) => {
                 setCapabilities((current) => ({ ...current, systemSkillsOff: withBotSystemSkill(current.systemSkillsOff, id, on) }));

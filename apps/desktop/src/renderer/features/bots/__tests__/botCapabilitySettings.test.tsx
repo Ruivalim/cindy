@@ -9,6 +9,9 @@ const h = vi.hoisted(() => ({
   offMcp: vi.fn(),
   list: vi.fn(async () => ({ agentKind: 'pi', servers: [] })),
   setEnabled: vi.fn(async () => {}),
+  confirm: vi.fn(async () => true),
+  skillPage: null as null | { view: { type: string; editing?: boolean }; onView: (view: unknown) => void;
+    editorDirtyRef?: { current: (() => boolean) | null } },
 }));
 vi.mock('../botPronounContext', () => ({ useBotTranslation: () => ({ t: (key: string, opts?: { defaultValue?: string }) => opts?.defaultValue ?? key }) }));
 vi.mock('../botStore', () => ({
@@ -17,7 +20,8 @@ vi.mock('../botStore', () => ({
 }));
 vi.mock('@/lib/sessionService', () => ({ get: async () => ({ agentKind: 'pi' }) }));
 // The Skill pages render Markdown; these tests cover the list.
-vi.mock('../BotSkillPage', () => ({ BotSkillPage: () => null }));
+vi.mock('../BotSkillPage', () => ({ BotSkillPage: (props: NonNullable<typeof h.skillPage>) => { h.skillPage = props; return null; } }));
+vi.mock('@/components/ui/confirm-dialog-provider', () => ({ useConfirmDialog: () => ({ confirm: h.confirm }) }));
 vi.mock('@/components/ui/toast', () => ({ toast: { error: vi.fn() } }));
 vi.mock('@/lib/sessionsBus', () => ({ onPatch: () => h.offLocal }));
 vi.mock('@/contexts/dataOwnerGeneration', () => ({
@@ -255,4 +259,36 @@ it('turns a system Skill off for this teammate without touching shared reference
   fireEvent.click(todo);
   expect(onSystemSkillChange).toHaveBeenCalledExactlyOnceWith('todo', false);
   expect(onChange).not.toHaveBeenCalled();
+});
+
+// Greptile #8330: back and closing settings must not silently drop an edited learned Skill.
+it('asks before leaving a learned Skill editor with unsaved changes', async () => {
+  Object.defineProperty(window, 'electronAPI', { configurable: true, value: {
+    localDb: { sessionsPush: { onPatched: () => h.offPush }, bots: {
+      listSkills: async () => [{ slug: 'weekly-report', name: '整理工作周报', enabled: true }],
+      skills: { setEnabled: h.setEnabled, read: vi.fn() },
+    } },
+    maker: { onMcpChanged: () => h.offMcp, listCustomMcpServers: h.list,
+      listAgentSkills: async () => ({ success: true, skills: [] }), plugins: { list: async () => [] } },
+  } });
+  const backRef: { current: (() => Promise<boolean>) | null } = { current: null };
+  const leaveRef: { current: (() => Promise<boolean>) | null } = { current: null };
+  const view = render(<BotCapabilitySettings expanded backRef={backRef} leaveRef={leaveRef}
+    bot={{ id: 'bot-1', canonicalSessionId: 's1' } as BotProfile}
+    capabilities={{ modelChain: [], modelChainOverride: null, mcpServers: [], toolsets: [] } as unknown as BotProfile['capabilities']}
+    skills={[]} onChange={vi.fn()} />);
+  fireEvent.click(await view.findByText('整理工作周报'));
+  await waitFor(() => expect(h.skillPage?.view).toEqual({ type: 'learned', slug: 'weekly-report' }));
+  expect(leaveRef.current).toBeNull();
+  h.skillPage!.onView({ type: 'learned', slug: 'weekly-report', editing: true });
+  await waitFor(() => expect(leaveRef.current).not.toBeNull());
+  h.skillPage!.editorDirtyRef!.current = () => true;
+  h.confirm.mockResolvedValueOnce(false);
+  expect(await backRef.current!()).toBe(true);
+  expect(h.skillPage?.view.editing).toBe(true);
+  h.confirm.mockResolvedValueOnce(false);
+  expect(await leaveRef.current!()).toBe(false);
+  expect(await backRef.current!()).toBe(true);
+  await waitFor(() => expect(h.skillPage?.view.editing).toBe(false));
+  expect(h.confirm).toHaveBeenCalledTimes(3);
 });

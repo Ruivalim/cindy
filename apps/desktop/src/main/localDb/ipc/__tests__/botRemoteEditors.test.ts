@@ -105,9 +105,10 @@ describe('portable teammate editors', () => {
     expect(f.deps.saveSkill).not.toHaveBeenCalled();
     await f.send(await f.resource('settings:bot-a/skills/learned'), { enabled: false });
     expect(f.deps.setSkillEnabled).toHaveBeenCalledExactlyOnceWith('bot-a', 'learned', false);
-    // A body over the store's rewrite limit cannot be moved by rewriting it; the switch is disabled.
+    // Greptile #8330: turning a skill off only moves its folder, so even a body over the store's
+    // rewrite limit keeps a working switch.
     vi.mocked(f.deps.skill).mockResolvedValue({ slug: 'learned', name: 'Huge', description: '', body: 'x'.repeat(70 * 1024), updatedAt: '1' });
-    expect((await f.resource('settings:bot-a/skills/learned')).actions![0].disabled).toBe(true);
+    expect((await f.resource('settings:bot-a/skills/learned')).actions![0].disabled).toBe(false);
   });
   it('does not overwrite a skill changed by another writer or delete after that conflict', async () => {
     const f = fixture(); const detail = await f.resource('settings:bot-a/skills/learned'); f.changeSkill();

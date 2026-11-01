@@ -411,16 +411,24 @@ describe('verbatim SKILL.md (cloud companions)', () => {
     expect(await listBotSkillSources(userDataDir, 'bot_d')).toEqual([]);
   });
 
-  // Editing an imported skill from settings must keep frontmatter Cindy does not write.
-  it('patches only description and body of a skill with its own frontmatter', () => {
-    const own = '---\nname: brew\ndescription: Old\nallowed-tools:\n  - Bash\nmetadata:\n  displayName: Brew\n  author: me\n---\n\nold steps\n';
-    expect(patchCustomBotSkillSource(own, { description: 'New "tea"', body: 'new steps' }))
-      .toBe('---\nname: brew\ndescription: "New \\"tea\\""\nallowed-tools:\n  - Bash\nmetadata:\n  displayName: Brew\n  author: me\n---\n\nnew steps\n');
+  // Editing an imported skill from settings must keep frontmatter Cindy does not write, and a
+  // rename and the version stamp must stick so a second, stale editor cannot overwrite it.
+  it('patches an imported skill in place and refuses a save based on an older read', async () => {
+    const own = '---\nname: brew\ndescription: Old\nallowed-tools:\n  - Bash\nmetadata:\n  author: me\n---\n\nold steps\n';
+    const edit = { name: 'Brew tea', description: 'New "tea"', body: 'new steps', updatedAt: '2026-11-01T00:00:00.000Z' };
+    const patched = patchCustomBotSkillSource(own, edit)!;
+    expect(patched).toBe('---\nname: brew\ndescription: "New \\"tea\\""\nallowed-tools:\n  - Bash\nmetadata:\n  author: me\n  displayName: "Brew tea"\n  updatedAt: "2026-11-01T00:00:00.000Z"\n---\n\nnew steps\n');
+    expect(parseBotSkillFile(patched)).toMatchObject({ name: 'Brew tea', description: 'New "tea"', updatedAt: edit.updatedAt });
     expect(patchCustomBotSkillSource(renderBotSkillFile({ slug: 'brew', name: 'Brew', description: 'd', updatedAt: 'now', body: 'b' }),
-      { description: 'x', body: 'y' })).toBeNull();
+      { ...edit, description: 'x', body: 'y' })).toBeNull();
     const block = '---\nname: brew\ndescription: >\n  Long\nlicense: MIT\n---\n\nsteps\n';
-    expect(patchCustomBotSkillSource(block, { description: parseBotSkillFile(block).description, body: 'more' })).toBe('---\nname: brew\ndescription: >\n  Long\nlicense: MIT\n---\n\nmore\n');
-    expect(() => patchCustomBotSkillSource(block, { description: 'Other', body: 'more' })).toThrow(BotSkillStoreError);
+    expect(() => patchCustomBotSkillSource(block, { ...edit, description: 'Other' })).toThrow(BotSkillStoreError);
+
+    await saveBotSkillSource(userDataDir, 'bot_e', 'brew', own);
+    await saveBotSkillSource(userDataDir, 'bot_e', 'brew', patched, { expectedUpdatedAt: '' });
+    // A second editor opened before the first save still holds the empty stamp.
+    await expect(saveBotSkillSource(userDataDir, 'bot_e', 'brew', own, { expectedUpdatedAt: '' })).rejects.toThrow('Skill changed during review');
+    expect(await readBotSkillSource(userDataDir, 'bot_e', 'brew')).toBe(patched);
   });
 });
 

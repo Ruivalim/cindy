@@ -11181,6 +11181,10 @@
         "deleteFailed": "未能删，稍后再试。",
         "deleteTitle": "删「{{name}}」乎？",
         "deleteBody": "删后此伴不复用此技艺，其文不可复。后若需之，可于言谈中令其复记。",
+        "unsavedTitle": "尚有未存之修改",
+        "unsavedDescription": "离去则舍此番于技艺之修改。",
+        "discard": "弃其修改",
+        "continueEditing": "续修",
         "descriptionLabel": "何时用之",
         "bodyLabel": "行法"
       },

@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Collapse } from '@/components/ui/collapse';
+import { useConfirmDialog } from '@/components/ui/confirm-dialog-provider';
 import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/toast';
@@ -44,6 +45,7 @@ export function BotCapabilitySettings({
   expanded,
   onConfigure,
   backRef,
+  leaveRef,
 }: {
   expanded?: boolean;
   onConfigure?: (kind: Kind, id?: string) => void;
@@ -55,8 +57,12 @@ export function BotCapabilitySettings({
   onInputHandoffChange?: (allowed: boolean) => void;
   /** The settings page's back button steps out of a Skill page first. */
   backRef?: MutableRefObject<(() => Promise<boolean>) | null>;
+  /** Set while a learned Skill is being edited: closing settings asks before discarding the draft. */
+  leaveRef?: MutableRefObject<(() => Promise<boolean>) | null>;
 }) {
   const { t } = useBotTranslation();
+  const { confirm } = useConfirmDialog();
+  const editorDirtyRef = useRef<(() => boolean) | null>(null);
   const [catalog, setCatalog] = useState<{ key: string; entries: Partial<Record<Kind, Entry[]>> }>({
     key: '',
     entries: {},
@@ -92,17 +98,34 @@ export function BotCapabilitySettings({
     setRevision((value) => value + 1);
   }, []);
 
+  // Same unsaved-changes question as routines and memory.
+  const confirmDiscard = useCallback(async () => !editorDirtyRef.current?.() || confirm({
+    presentation: 'standard',
+    title: t('bots.capabilities.learned.unsavedTitle'),
+    description: t('bots.capabilities.learned.unsavedDescription'),
+    confirmText: t('bots.capabilities.learned.discard'),
+    cancelText: t('bots.capabilities.learned.continueEditing'),
+  }), [confirm, t]);
+  const editing = view?.type === 'learned' && view.editing === true;
   useEffect(() => {
     if (!backRef) return;
     backRef.current = async () => {
       if (!view) return false;
-      setView(view.type === 'learned' && view.editing ? { ...view, editing: false } : null);
+      if (editing && !(await confirmDiscard())) return true;
+      setView(editing ? { ...view, editing: false } : null);
       return true;
     };
     return () => {
       backRef.current = null;
     };
-  }, [backRef, view]);
+  }, [backRef, view, editing, confirmDiscard]);
+  useEffect(() => {
+    if (!leaveRef || !editing) return;
+    leaveRef.current = confirmDiscard;
+    return () => {
+      leaveRef.current = null;
+    };
+  }, [leaveRef, editing, confirmDiscard]);
 
   useEffect(() => {
     if (!open) return;
@@ -156,6 +179,7 @@ export function BotCapabilitySettings({
         systemSkillOn={(id) => isBotSystemSkillOn(capabilities, id)}
         onSystemSkillChange={onSystemSkillChange}
         onLearnedChanged={refresh}
+        editorDirtyRef={editorDirtyRef}
       />
     );
   }

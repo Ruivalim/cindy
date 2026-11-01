@@ -11321,6 +11321,10 @@
         "deleteFailed": "Échec de la suppression. Réessayez plus tard.",
         "deleteTitle": "Supprimer « {{name}} » ?",
         "deleteBody": "Le coéquipier n’utilisera plus ce skill et son contenu ne pourra pas être restauré. Si vous en avez besoin plus tard, demandez-lui de retenir à nouveau la méthode.",
+        "unsavedTitle": "Modifications non enregistrées",
+        "unsavedDescription": "Si vous quittez, ces modifications du skill seront perdues.",
+        "discard": "Abandonner",
+        "continueEditing": "Continuer l'édition",
         "descriptionLabel": "Quand l’utiliser",
         "bodyLabel": "Comment faire"
       },

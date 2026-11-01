@@ -11227,6 +11227,10 @@
         "deleteFailed": "Löschen fehlgeschlagen. Versuche es später erneut.",
         "deleteTitle": "„{{name}}“ löschen?",
         "deleteBody": "Der Teammate nutzt diesen Skill nicht mehr, und der Inhalt lässt sich nicht wiederherstellen. Brauchst du ihn später, bitte ihn im Chat, sich die Vorgehensweise erneut zu merken.",
+        "unsavedTitle": "Ungespeicherte Änderungen",
+        "unsavedDescription": "Wenn du diese Ansicht verlässt, werden die Änderungen an diesem Skill verworfen.",
+        "discard": "Änderungen verwerfen",
+        "continueEditing": "Weiter bearbeiten",
         "descriptionLabel": "Wann nutzen",
         "bodyLabel": "Vorgehen"
       },

@@ -11321,6 +11321,10 @@
         "deleteFailed": "Não foi possível excluir. Tente novamente mais tarde.",
         "deleteTitle": "Excluir “{{name}}”?",
         "deleteBody": "O colega deixará de usar esta Skill e o conteúdo não poderá ser recuperado. Se precisar dela depois, peça no chat que ele lembre o método de novo.",
+        "unsavedTitle": "Alterações não salvas",
+        "unsavedDescription": "Sair descartará estas alterações na Skill.",
+        "discard": "Descartar alterações",
+        "continueEditing": "Continuar editando",
         "descriptionLabel": "Quando usar",
         "bodyLabel": "Como fazer"
       },
@@ -11339,7 +11343,7 @@
     },
     "systemSkills": {
       "followOffHint": "A Skill do sistema “Painel e acompanhamento” de {{name}} está desativada. Ative-a de novo em Capacidades para usar isto.",
-      "offHint": "A Skill do sistema “{{Skill}}” está desativada. Ela volta a rodar quando você a reativar em Capacidades."
+      "offHint": "A Skill do sistema “{{skill}}” está desativada. Ela volta a rodar quando você a reativar em Capacidades."
     },
     "guided": {
       "title": "Criar um colega",

@@ -11321,6 +11321,10 @@
         "deleteFailed": "No se pudo eliminar. Inténtalo más tarde.",
         "deleteTitle": "¿Eliminar «{{name}}»?",
         "deleteBody": "El compañero dejará de usar esta habilidad y su contenido no se podrá recuperar. Si la necesitas más adelante, pídele que vuelva a recordar el método.",
+        "unsavedTitle": "Cambios sin guardar",
+        "unsavedDescription": "Si sales, se descartarán estos cambios en la habilidad.",
+        "discard": "Descartar cambios",
+        "continueEditing": "Seguir editando",
         "descriptionLabel": "Cuándo usarla",
         "bodyLabel": "Cómo hacerlo"
       },

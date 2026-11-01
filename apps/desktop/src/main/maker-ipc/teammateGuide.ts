@@ -29,6 +29,11 @@ export interface TeammateGuideOptions {
   pluginAuthorizationCardsEnabled?: boolean;
   /** System Skills this teammate turned off; absent = all on. */
   systemSkillsOff?: readonly string[];
+  /**
+   * The file every local teammate mounts: it names the system Skills without saying which are on,
+   * because that differs per teammate and the preloaded profile already says it.
+   */
+  shared?: boolean;
 }
 
 const topics = (names: string[]) => names.map((name) => `\`${name}\``).join(', ');
@@ -73,10 +78,12 @@ export function buildTeammateGuide(options: TeammateGuideOptions = {}): string {
       lines.push('To connect a messaging platform for yourself, use `connect_account` with kind=host and id=`im-<channel>` (telegram, feishu, wecom, dingtalk, discord); the owner fills its credentials on the card on the trusted desktop, never in chat.');
     }
     lines.push('### System Skills');
-    lines.push(on.length
+    if (options.shared) {
+      lines.push(`${BOT_SYSTEM_SKILL_IDS.map((id) => `\`${id}\` — ${TEAMMATE_SYSTEM_SKILLS[id].description}`).join(' ')} The owner can switch each one off; your preloaded profile says which are on for you. Read one with \`read_teammate_skill\` before using its tools.`);
+    } else lines.push(on.length
       ? `On: ${on.map((id) => `\`${id}\` — ${TEAMMATE_SYSTEM_SKILLS[id].description}`).join(' ')} Read one with \`read_teammate_skill\` before using its tools.`
       : 'All system Skills are off.');
-    if (off.length) {
+    if (off.length && !options.shared) {
       lines.push(`Off: ${topics(off)}. Their tools are unavailable; if the work needs one, say it is off and offer to turn it back on only when the owner wants.`);
     }
   }

@@ -11181,6 +11181,10 @@
         "deleteFailed": "削除できませんでした。しばらくしてからもう一度お試しください。",
         "deleteTitle": "「{{name}}」を削除しますか？",
         "deleteBody": "このスキルは使われなくなり、内容は元に戻せません。必要になったら、チャットでもう一度覚えるよう頼めます。",
+        "unsavedTitle": "未保存の変更があります",
+        "unsavedDescription": "戻ると、このスキルへの変更が破棄されます。",
+        "discard": "変更を破棄",
+        "continueEditing": "編集を続ける",
         "descriptionLabel": "使うとき",
         "bodyLabel": "やり方"
       },

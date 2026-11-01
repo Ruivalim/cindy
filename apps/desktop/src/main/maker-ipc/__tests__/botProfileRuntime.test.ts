@@ -12,7 +12,7 @@ import {
 } from '../botProfileRuntime';
 import { buildDefaultBotIdentity } from '../../../shared/botProfileDefaults';
 import { TEAMMATE_CORE_TOPICS, TEAMMATE_SYSTEM_SKILLS } from '@cindy/mcps';
-import { TEAMMATE_CORE_MAX_CHARS } from '../teammateGuide';
+import { TEAMMATE_CORE_MAX_CHARS, buildTeammateGuide } from '../teammateGuide';
 import { buildBotMcpCatalog } from '../../maker-host/botMcpCatalog';
 
 // Unit regression: default inheritance must retain engine connectors while an
@@ -98,6 +98,15 @@ describe('Bot Profile runtime prompt', () => {
     expect(prompt).toContain('On: `routine`');
     expect(prompt).not.toContain(`\`todo\` — ${TEAMMATE_SYSTEM_SKILLS.todo.description}`);
     expect(prompt).toContain('Off: `todo`. Their tools are unavailable');
+  });
+
+  // Greptile #8330: every local teammate mounts the same core file, so it must not claim a teammate's switches.
+  it('keeps per-teammate system Skill state out of the shared core file', () => {
+    const shared = buildTeammateGuide({ shared: true, systemSkillsOff: ['todo'] });
+    expect(shared).not.toMatch(/\bOn: |\bOff: |All system Skills are off/);
+    for (const id of ['todo', 'routine', 'follow']) expect(shared).toContain(`\`${id}\` — `);
+    expect(shared).toContain('your preloaded profile says which are on for you');
+    expect(shared.length).toBeLessThanOrEqual(TEAMMATE_CORE_MAX_CHARS);
   });
 
   it('does not advertise helper discovery or delegation when the target cannot mount it', () => {

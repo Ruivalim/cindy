@@ -11,7 +11,7 @@ import {
   saveBotSkillSourceForBot,
   setBotSkillEnabledForBot,
 } from '../../maker-ipc/botSkillService.js';
-import { BotSkillStoreError, parseBotSkillFile, patchCustomBotSkillSource } from '../../maker-ipc/botSkillStore.js';
+import { BotSkillStoreError, patchCustomBotSkillSource } from '../../maker-ipc/botSkillStore.js';
 import { requestBotRuntimeEpochRefresh } from '../../maker-ipc/botRuntimeEpochRefreshSignal.js';
 import { buildTeammateGuide, TEAMMATE_GUIDE_DESCRIPTION, TEAMMATE_GUIDE_NAME } from '../../maker-ipc/teammateGuide.js';
 import { getBotRemoteResourceSource, getBotRemoteSettingsSource } from './bots';
@@ -42,9 +42,9 @@ async function canonicalSessionOf(botId: string, scope: BotSkillSettingsScope): 
   return source.canonicalSessionId ?? null;
 }
 
-/** The shared core as every teammate receives it on this computer (all system Skills on). */
+/** The shared core file every teammate on this computer mounts (it does not state per-teammate switches). */
 export function readBotCoreSkill(): BotCoreSkill {
-  return { name: TEAMMATE_GUIDE_NAME, description: TEAMMATE_GUIDE_DESCRIPTION, body: buildTeammateGuide() };
+  return { name: TEAMMATE_GUIDE_NAME, description: TEAMMATE_GUIDE_DESCRIPTION, body: buildTeammateGuide({ shared: true }) };
 }
 
 export async function readBotSkillForSettings(botId: string, slug: string, scope: BotSkillSettingsScope = {}): Promise<BotSkillDetail | null> {
@@ -62,14 +62,16 @@ export async function saveBotSkillForSettings(botId: string, input: BotSkillSave
   const source = await readBotSkillSourceForBot(botId, input.slug);
   owner.assertCurrent();
   if (!canonical) throwIpcError('PRECONDITION_FAILED', 'Teammate unavailable');
-  // An imported skill keeps its own frontmatter (allowed-tools and the like); only description and body change.
+  // An imported skill keeps its own frontmatter (allowed-tools and the like); name, description and body change.
   let patched: string | null = null;
-  try { patched = source === null ? null : patchCustomBotSkillSource(source, input); }
+  try { patched = source === null ? null : patchCustomBotSkillSource(source, { ...input, updatedAt: new Date().toISOString() }); }
   catch (error) { throwIpcError('PRECONDITION_FAILED', error instanceof BotSkillStoreError ? error.message : 'Skill could not be saved'); }
   if (patched !== null) {
-    if (input.expectedUpdatedAt !== undefined && parseBotSkillFile(source!).updatedAt !== input.expectedUpdatedAt)
-      throwIpcError('PRECONDITION_FAILED', 'Skill could not be saved; refresh before retrying');
-    await saveBotSkillSourceForBot(botId, input.slug, patched);
+    try { await saveBotSkillSourceForBot(botId, input.slug, patched, { expectedUpdatedAt: input.expectedUpdatedAt }); }
+    catch (error) {
+      if (error instanceof BotSkillStoreError) throwIpcError('PRECONDITION_FAILED', 'Skill could not be saved; refresh before retrying');
+      throw error;
+    }
     owner.assertCurrent();
     await requestBotRuntimeEpochRefresh(canonical, 'resource');
     return;

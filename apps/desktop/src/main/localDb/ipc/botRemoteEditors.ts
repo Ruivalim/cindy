@@ -10,7 +10,6 @@ import { throwIpcError } from '../../utils/ipcValidate.js';
 import { createBotRemoteMemoryEditor, memoryCopy, type BotRemoteMemoryService } from './botRemoteMemory.js';
 import type { BotProjectOption } from '../../../shared/botWorkbench.js';
 import { BOT_SYSTEM_SKILL_IDS, isBotSystemSkillId, readBotSystemSkillsOff, withBotSystemSkill } from '../../../shared/botSystemSkills.js';
-import { BOT_SKILL_MAX_BODY_BYTES } from '../../maker-ipc/botSkillStore.js';
 
 type Kind = 'skill' | 'mcp' | 'toolset';
 type Capability = { id: string; name: string; description: string; available: boolean; joined: boolean };
@@ -275,12 +274,12 @@ export function createBotRemoteEditors(deps: BotRemoteEditorDeps, bind: ReturnTy
         if (input.enabled !== enabled) await deps.setSkillEnabled(botId, section, input.enabled as boolean);
       };
       // Large imported skills remain intact; mobile's transport must never clip and save them.
-      // Only the on/off switch is offered; the store cannot rewrite a body over its size limit.
+      // Only the on/off switch is offered; turning it off moves the folder and never rewrites the body.
       if (Buffer.byteLength(JSON.stringify(skill)) > 55_000) {
         const panel = form('capability', editorCopy.useSkill, [enabledField], { enabled });
         panel.block.fallbackMarkdown = `${resolveRemoteText(editorCopy.largeSkill, locale)}\n\n${skill.body.slice(0, 12_000)}…`;
         resource.blocks = [panel.block];
-        resource.actions = [{ ...panel.action, disabled: settings.source.status !== 'active' || Buffer.byteLength(skill.body) > BOT_SKILL_MAX_BODY_BYTES }];
+        resource.actions = [{ ...panel.action, disabled: settings.source.status !== 'active' }];
         return bind(context, resource, readRevision, async request => {
           const input = request.input ?? {}; keys(input, ['enabled']);
           if (!('enabled' in input)) fail();

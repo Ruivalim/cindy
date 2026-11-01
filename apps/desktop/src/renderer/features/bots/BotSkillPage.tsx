@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type MutableRefObject } from 'react';
 import { ChevronRight, PenLine } from 'lucide-react';
 
 import { MarkdownRenderer } from '@/components/chat/MarkdownRenderer';
@@ -30,13 +30,15 @@ const BODY_MAX = 64 * 1024;
  * what turning it off stops, or a learned Skill to turn off, edit or delete. The settings page's
  * back button returns to the list (BotCapabilitySettings `backRef`).
  */
-export function BotSkillPage({ bot, view, onView, systemSkillOn, onSystemSkillChange, onLearnedChanged }: {
+export function BotSkillPage({ bot, view, onView, systemSkillOn, onSystemSkillChange, onLearnedChanged, editorDirtyRef }: {
   bot: BotProfile;
   view: BotSkillPageView;
   onView: (view: BotSkillPageView | null) => void;
   systemSkillOn: (id: BotSystemSkillId) => boolean;
   onSystemSkillChange?: (id: BotSystemSkillId, on: boolean) => void;
   onLearnedChanged: () => void;
+  /** Set while a learned Skill is being edited: whether the draft differs from what was opened. */
+  editorDirtyRef?: MutableRefObject<(() => boolean) | null>;
 }) {
   if (view.type === 'core') return <CorePage />;
   if (view.type === 'system') {
@@ -44,7 +46,7 @@ export function BotSkillPage({ bot, view, onView, systemSkillOn, onSystemSkillCh
   }
   return <LearnedPage bot={bot} slug={view.slug} editing={Boolean(view.editing)}
     onEdit={(editing) => onView({ ...view, editing })} onDeleted={() => { onLearnedChanged(); onView(null); }}
-    onChanged={onLearnedChanged} />;
+    onChanged={onLearnedChanged} editorDirtyRef={editorDirtyRef} />;
 }
 
 function Heading({ title, meta }: { title: string; meta: string }) {
@@ -134,13 +136,14 @@ function useUpdatedLabel() {
   }, [i18n?.language, t]);
 }
 
-function LearnedPage({ bot, slug, editing, onEdit, onDeleted, onChanged }: {
+function LearnedPage({ bot, slug, editing, onEdit, onDeleted, onChanged, editorDirtyRef }: {
   bot: BotProfile;
   slug: string;
   editing: boolean;
   onEdit: (editing: boolean) => void;
   onDeleted: () => void;
   onChanged: () => void;
+  editorDirtyRef?: MutableRefObject<(() => boolean) | null>;
 }) {
   const { t } = useBotTranslation();
   const target = useBotSettingsTarget();
@@ -203,15 +206,15 @@ function LearnedPage({ bot, slug, editing, onEdit, onDeleted, onChanged }: {
   };
 
   if (editing) {
-    return <LearnedEditor detail={detail} onCancel={() => onEdit(false)} onSave={async (next) => {
+    return <LearnedEditor detail={detail} dirtyRef={editorDirtyRef} onCancel={() => onEdit(false)} onSave={async (next) => {
       try {
         await skills.save(bot.id, { slug, name: detail.name, ...next, expectedUpdatedAt: detail.updatedAt });
         onChanged();
         setReload((value) => value + 1);
         onEdit(false);
       } catch {
+        // Keep the editor and its draft: the owner can retry, or cancel to see the saved version.
         toast.error(t('bots.capabilities.learned.saveFailed'));
-        setReload((value) => value + 1);
       }
     }} />;
   }
@@ -241,8 +244,9 @@ function LearnedPage({ bot, slug, editing, onEdit, onDeleted, onChanged }: {
   );
 }
 
-function LearnedEditor({ detail, onCancel, onSave }: {
+function LearnedEditor({ detail, dirtyRef, onCancel, onSave }: {
   detail: BotSkillDetail;
+  dirtyRef?: MutableRefObject<(() => boolean) | null>;
   onCancel: () => void;
   onSave: (next: { description: string; body: string }) => Promise<void>;
 }) {
@@ -250,6 +254,11 @@ function LearnedEditor({ detail, onCancel, onSave }: {
   const [description, setDescription] = useState(detail.description);
   const [body, setBody] = useState(detail.body);
   const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    if (!dirtyRef) return;
+    dirtyRef.current = () => description.trim() !== detail.description || body !== detail.body;
+    return () => { dirtyRef.current = null; };
+  }, [dirtyRef, description, body, detail]);
   const invalid = !description.trim() || !body.trim() || body.length > BODY_MAX;
   return (
     <article className="animate-fade-in flex flex-col gap-3 pt-1">

@@ -61,6 +61,18 @@ describe('gunzipBase64Worklet', () => {
     expect(gunzipBase64Worklet(encode(text), 19)).toMatchObject({ ok: false, limitExceeded: true });
   });
 
+  it('rejects altered bytes that keep the same length, as pako does', () => {
+    // A stored block copies bytes verbatim, so flipping one keeps the stream and ISIZE valid.
+    const stream = gzipSync(Buffer.from('{"balance":1000,"owner":"alice"}', 'utf8'), { level: 0 });
+    const at = stream.indexOf(Buffer.from('1000'));
+    expect(at).toBeGreaterThan(0);
+    const altered = Buffer.from(stream);
+    altered[at] = '9'.charCodeAt(0);
+    expect(gunzipBase64Worklet(altered.toString('base64'), 1_000))
+      .toMatchObject({ ok: false, limitExceeded: false, message: 'gzip crc mismatch' });
+    expect(() => decodeGzipBase64TextBounded(altered.toString('base64'), 1_000)).toThrow();
+  });
+
   it('reports corrupt streams as ordinary failures', () => {
     const valid = gzipSync(Buffer.from('hello world, hello world', 'utf8'));
     for (const [name, stream] of [

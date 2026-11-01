@@ -201,9 +201,20 @@ export function gunzipBase64Worklet(base64: string, maxChars: number): GunzipWor
       }
     }
 
-    // --- gzip trailer: ISIZE is the output length modulo 2^32. ---
+    // --- gzip trailer: CRC32 of the output, then ISIZE (output length modulo 2^32). ---
     pos -= Math.floor(held / 8);
     if (pos + 8 > written) throw new Error('truncated gzip stream');
+    const expectedCrc = (input[pos] | (input[pos + 1] << 8) | (input[pos + 2] << 16)
+      | (input[pos + 3] << 24)) >>> 0;
+    const crcTable = new Uint32Array(256);
+    for (let n = 0; n < 256; n += 1) {
+      let c = n;
+      for (let k = 0; k < 8; k += 1) c = c & 1 ? (c >>> 1) ^ 0xedb88320 : c >>> 1;
+      crcTable[n] = c >>> 0;
+    }
+    let crc = 0xffffffff;
+    for (let n = 0; n < outLength; n += 1) crc = crcTable[(crc ^ out[n]) & 0xff] ^ (crc >>> 8);
+    if (((crc ^ 0xffffffff) >>> 0) !== expectedCrc) throw new Error('gzip crc mismatch');
     const expected = (input[pos + 4] | (input[pos + 5] << 8) | (input[pos + 6] << 16)
       | (input[pos + 7] << 24)) >>> 0;
     if (expected !== outLength >>> 0) throw new Error('gzip length mismatch');

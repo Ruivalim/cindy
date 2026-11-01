@@ -443,7 +443,9 @@ function buildProjectSections(
   }
   for (const [workingDir, data] of [...projectGroups].sort(([a], [b]) => compareSessionListStrings(a, b))) {
     // 标题用组内首条会话的原始目录(只折 worktree),保留用户自己的大小写与分隔符风格。
-    const displayDir = collapseWorktreeDirForGrouping(sessionProjectDirectory(data[0].session) ?? workingDir);
+    // 折叠前先去掉外围空白:分组键按 trim 后的路径归一,若标题仍用原串,
+    // ` /repo/app/ ` 这种受支持的输入会让 projectTitle() 只剩一个空格,分区标题变成空白。
+    const displayDir = collapseWorktreeDirForGrouping((sessionProjectDirectory(data[0].session) ?? workingDir).trim());
     sections.push({
       key: `project:${workingDir}`,
       title: resolveProjectAliasForSessions(projectMembers.get(workingDir) ?? [], options.projectAliases, options.projectAliasDeviceId)

@@ -1183,6 +1183,8 @@ describe('project sections fold Windows path spelling', () => {
     const projectSections = sections.filter((section) => section.key.startsWith('project:'));
     expect(projectSections).toHaveLength(1);
     expect(projectSections[0].data).toHaveLength(2);
+    // 标题取组内首条会话的原始写法，不能被分组键的小写归一覆盖。
+    expect(projectSections[0].title).toBe('App');
     expect(summarizeRemoteSessionOverview(sessions, new Map(), new Map()).projectCount).toBe(1);
   });
 
@@ -1200,7 +1202,9 @@ describe('project sections fold Windows path spelling', () => {
       ],
       now,
     );
-    expect(mixed.filter((section) => section.key.startsWith('project:'))).toHaveLength(1);
+    const mixedProjects = mixed.filter((section) => section.key.startsWith('project:'));
+    expect(mixedProjects).toHaveLength(1);
+    expect(mixedProjects[0].title).toBe('App');
   });
 });
 

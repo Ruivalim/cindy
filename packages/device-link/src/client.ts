@@ -329,9 +329,16 @@ export interface DeviceLinkClientOptions {
   /** Optional local counters; no content/identities, never part of delivery decisions. */
   invokeMetrics?: {
     enabled(): boolean;
-    record(event: { channel: string; phase: 'sent' | 'result'; payloadBytes?: number;
-      notModified?: boolean; gzip?: boolean }): void;
+    record(event: { channel: string; phase: 'sent' | 'result' | 'decoded'; payloadBytes?: number;
+      notModified?: boolean; gzip?: boolean; inflateMs?: number; parseMs?: number }): void;
+    /** Coarser or finer metric row than the channel. Must return fixed names only, never ids or content. */
+    label?(channel: string, args: unknown[] | undefined): string;
   };
+  /**
+   * 只服务跨账号 peer(共享任务 / 供应商分享)的专用连接:同账号 peer 的路由帧在入站边界丢弃。
+   * 主连接走自建中转时用它连官方中转,同账号设备不能借这条连接绕过用户选的线路控制本机。
+   */
+  scopedPeersOnly?: boolean;
   /** 测试注入:覆盖重连/心跳的时间参数 */
   timing?: Partial<DeviceLinkTiming>;
 }
@@ -1071,6 +1078,16 @@ export class DeviceLinkClient {
     void this.connect(reason);
   }
 
+  /** host 的整体恢复入口(系统唤醒等):作用于本机全部连接。 */
+  restartConnections(reason?: string): void {
+    this.restartConnection(reason);
+  }
+
+  /** host 的整体恢复入口(回到前台等):作用于本机全部连接。 */
+  connectAllNow(reason?: string, opts?: Parameters<DeviceLinkClient['connectNow']>[1]): void {
+    this.connectNow(reason, opts);
+  }
+
   /** Network changes are hints, not proof of failure. Probe the shared relay,
    * never an individual peer; any valid inbound frame keeps the socket alive.
    * Repeated hints coalesce without postponing detection indefinitely. Foreground
@@ -1180,6 +1197,11 @@ export class DeviceLinkClient {
   }
 
   stop(): void {
+    this.stopConnection();
+  }
+
+  /** 只停这一条连接:中转移除本设备只影响它自己的线路,host 的 stop 才结束整个 client。 */
+  protected stopConnection(): void {
     this.messageReuse.clear();
     this.invokeResultCache.clear();
     this.inboundInvokeTransfer.clear();
@@ -1550,6 +1572,26 @@ export class DeviceLinkClient {
     return this.serverCapabilities.includes(capability);
   }
 
+  /** 承载这个 peer 的连接。只有一条连接时就是自身,见 RoutedDeviceLinkClient。 */
+  connectionFor(_peer: string): DeviceLinkClient {
+    return this;
+  }
+
+  /** 承载跨账号 peer 的连接:共享任务与供应商分享的可用性看它的状态与能力。 */
+  crossAccountConnection(): DeviceLinkClient {
+    return this;
+  }
+
+  /** 订阅独立跨账号连接的状态。跨账号 peer 在主连接上时不触发,onStatusChange 已覆盖。 */
+  onSeparateCrossAccountStatus(_cb: (status: DeviceLinkStatus) => void): () => void {
+    return () => {};
+  }
+
+  /** 订阅独立跨账号连接的连接问题。这条连接的问题不进 onConnectionIssue,不影响主线路的提示。 */
+  onSeparateCrossAccountIssue(_cb: (issue: DeviceLinkConnectionIssue | null) => void): () => void {
+    return () => {};
+  }
+
   /** 最近一次 hello-ack 回的本设备 deviceId(未上线过为 null)。 */
   getSelfDeviceId(): string | null {
     return this.selfDeviceId;
@@ -1700,9 +1742,9 @@ export class DeviceLinkClient {
         'invoke-result',
         timeoutMs,
       );
-      this.reportInvokeMetric(payload.channel, env.payload as InvokeResultPayload);
+      this.reportInvokeMetric(payload, env.payload as InvokeResultPayload);
       const result = transfer
-        ? transfer.decode(env.payload as InvokeResultPayload)
+        ? await transfer.decode(env.payload as InvokeResultPayload, (timing) => this.reportInvokeDecode(payload, timing))
         : env.payload as InvokeResultPayload;
       return result.ok
         ? {
@@ -1889,14 +1931,26 @@ export class DeviceLinkClient {
 
   // ─── 内部:请求配对 ─────────────────────────────────────────────────────────
 
-  private reportInvokeMetric(channel: string, result?: InvokeResultPayload): void {
+  private invokeMetricChannel(payload: InvokePayload): string {
+    return this.opts.invokeMetrics?.label?.(payload.channel, payload.args) ?? payload.channel;
+  }
+
+  private reportInvokeMetric(payload: InvokePayload, result?: InvokeResultPayload): void {
     try {
       if (!this.opts.invokeMetrics?.enabled()) return;
+      const channel = this.invokeMetricChannel(payload);
       this.opts.invokeMetrics.record(result === undefined ? { channel, phase: 'sent' } : {
         channel, phase: 'result', payloadBytes: byteLength(JSON.stringify(result)),
         notModified: result.ok && result.transfer?.notModified === true,
         gzip: result.ok && typeof result.transfer?.gzipBase64 === 'string',
       });
+    } catch { /* Diagnostics must never affect delivery or response decoding. */ }
+  }
+
+  private reportInvokeDecode(payload: InvokePayload, timing: { inflateMs: number; parseMs: number }): void {
+    try {
+      if (!this.opts.invokeMetrics?.enabled()) return;
+      this.opts.invokeMetrics.record({ channel: this.invokeMetricChannel(payload), phase: 'decoded', ...timing });
     } catch { /* Diagnostics must never affect delivery or response decoding. */ }
   }
 
@@ -1973,7 +2027,7 @@ export class DeviceLinkClient {
         noteFirstWrite: () => {
           if (firstWriteAt !== undefined) return;
           firstWriteAt = this.monotonicNow();
-          if (env.kind === 'invoke') this.reportInvokeMetric((env.payload as InvokePayload).channel);
+          if (env.kind === 'invoke') this.reportInvokeMetric(env.payload as InvokePayload);
           // Only the first write can move the deadline. Replays and partial writes
           // cannot extend it; total transport lifetime is at most sendWaitMs + timeout.
           deadlineMonotonicAt = Math.min(firstWriteAt + timeout, startedMonotonicAt + sendWaitMs + timeout);
@@ -2329,7 +2383,7 @@ export class DeviceLinkClient {
     this.failNonReliablePending(new DeviceLinkError('NOT_CONNECTED', 'relay connection lost'));
     if (this.stopped) return;
     if (code === 4410) {
-      this.stop();
+      this.stopConnection();
       this.setConnectionIssue({ kind: 'device-removed', closeCode: code, at: Date.now() });
       return;
     }
@@ -2557,6 +2611,22 @@ export class DeviceLinkClient {
     }
     const env = decodeScopedEnvelope(parsed, this.scopeSupport());
     if (!env) { this.log.warn('dropping invalid device-link routing scope'); return; }
+    if (this.opts.scopedPeersOnly && env.src && ROUTED_KINDS.has(env.kind) && !isScopedPeer(env.src)) {
+      // 对端看到的 presence 仍是在线,明确关闭比让它等到超时更快;这里不建立任何链路状态。
+      if (env.kind === 'link-open') {
+        try {
+          this.sendBestEffortRoutedEnvelope({
+            v: PROTOCOL_VERSION,
+            kind: 'link-close',
+            dst: env.src,
+            payload: { reason: 'toggle-off' } satisfies LinkClosePayload,
+          });
+        } catch (err) {
+          this.log.debug('link-close for a same-account peer failed', err);
+        }
+      }
+      return;
+    }
     const validForHeartbeat = isValidInboundEnvelope(env);
     // 畸形 invoke / link-close 仍须进入 Desktop 业务层：前者生成结构化拒绝，后者
     // 走既有 fail-generic 的 peer teardown；但两者都不能因此喂活 heartbeat。

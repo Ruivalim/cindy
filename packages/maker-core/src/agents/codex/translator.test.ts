@@ -872,7 +872,7 @@ describe('translateErrorNotification', () => {
     expect(events[0]!.data).not.toHaveProperty('reason');
   });
 
-  it('Codex 远端 compact 密文 400 走 context-overflow，交给 host 换窗而不是原样重试', async () => {
+  it('Codex 远端 compact 密文 400 保留独立原因并交给 host 换窗', async () => {
     const rt = newCodexRuntimeState();
     const q = createAsyncQueue<AgentEvent>();
     translateErrorNotification(
@@ -886,7 +886,7 @@ describe('translateErrorNotification', () => {
     );
     const events = await collect(q);
     expect(events[0]!.data).toMatchObject({
-      reason: 'context-overflow',
+      reason: 'remote-compact-encrypted-content',
       isTerminal: true,
     });
   });
@@ -947,13 +947,13 @@ describe('translateErrorNotification', () => {
         message:
           'Error running remote compact task: { "type": "error", "error": { "code": "invalid_encrypted_content" } }',
       }).reason,
-    ).toBe('context-overflow');
+    ).toBe('remote-compact-encrypted-content');
     expect(
       classifyCodexError({
         message: 'Error running remote compact task',
         additionalDetails: 'code=invalid_encrypted_content',
       }).reason,
-    ).toBe('context-overflow');
+    ).toBe('remote-compact-encrypted-content');
     expect(
       classifyCodexError({
         message: 'Encrypted content could not be decrypted or parsed. code=invalid_encrypted_content',
@@ -1373,6 +1373,21 @@ describe('translateItemNotification contextCompaction', () => {
 });
 
 describe('translateItemNotification commandExecution output normalization', () => {
+  it.each(['declined', 'failed', 'completed'] as const)('keeps empty %s command results truthful and readable', async (status) => {
+    const queue = createAsyncQueue<AgentEvent>();
+    translateItemNotification('completed', { threadId: 't', turnId: 'turn',
+      item: { type: 'commandExecution', id: 'empty', command: 'pwd', status, aggregatedOutput: '' },
+    }, queue, makeCtx(newCodexRuntimeState()));
+    queue.end();
+    const events: AgentEvent[] = [];
+    for await (const event of queue) events.push(event);
+    const result = events.find(event => event.type === 'tool_result_full')!;
+    expect(result.data).toMatchObject({ isError: status !== 'completed',
+      fullText: status === 'completed' ? '' : expect.stringMatching(/declined|failed/),
+    });
+    expect(JSON.stringify(result)).not.toContain('rejected by user');
+  });
+
   it('keeps the raw PowerShell wrapper command and emits a display command for tool_use display', async () => {
     const rt = newCodexRuntimeState();
     const q = createAsyncQueue<AgentEvent>();

@@ -418,6 +418,8 @@ export interface CodexExtraSpawnConfig {
     session?: CodexSessionMcpConfigInput,
   ) => Record<string, unknown>;
   codexProxyActive?: boolean;
+  /** Default native identity for ordinary models routed through the local proxy. */
+  codexDefaultModelProviderId?: string;
   /**
    * ChatGPT 订阅直连的内部 OpenAI transport identity，仅 oauth-bearer spawn 下发。
    */
@@ -1189,6 +1191,10 @@ export interface AgentDeps {
   /** Synchronous local policy registration; no RPC or IO on a send. Returns owner-scoped cleanup. */
   registerCodexTextOnlyPolicy?: (threadId: string, disabled: () => boolean) => () => void;
   registerCodexMcpThreadContext?: (args: CodexMcpThreadContextArgs) => void;
+  /** Snapshot App tools before user interrupt; invoke only after upstream ACK. Local, nonblocking. */
+  prepareCodexMcpToolCancellation?: (
+    args: Pick<CodexMcpThreadContextArgs, 'sessionId' | 'threadId'> & { sessionInstanceId: string },
+  ) => () => void;
   unregisterCodexMcpThreadContext?: (
     threadId: string,
     expectedSessionInstanceId?: string,
@@ -1927,6 +1933,8 @@ export interface StartSessionOptions {
    * app-managed cwd, but must stay out of project grouping when persisted.
    */
   workspaceKind?: WorkspaceKind;
+  /** Product project membership; does not change filesystem permissions or cwd. */
+  projectDir?: string | null;
   /**
    * 远端目标 host id (`@cindy/maker-remote-ssh` ConnectionPool 里的 host alias)。
    * 设置后, agent 不在本机 spawn 进程, 改成通过 deps.getRemoteCodexTransport(id) 拿到
@@ -2037,6 +2045,11 @@ export interface StartSessionOptions {
    * can observe different memory generations.
    */
   makerMemoryIndexSnapshot?: string;
+  /**
+   * 设备托管：任务所在电脑在打开任务时按真实工作目录生成的插件花名册段。插件工具经隧道
+   * 回到那台电脑，花名册也必须来自那台；Agent 所在电脑不读自己的已装插件。
+   */
+  ghostRosterSnapshot?: string;
   /**
    * Host-owned Cindy Review policy. This is not a user permission preset:
    * adapters must keep the session local, fresh, memory-free and hard

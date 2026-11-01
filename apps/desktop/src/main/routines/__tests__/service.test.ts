@@ -556,6 +556,43 @@ it('disables a one-shot imported direct reminder after its fire succeeds', async
   expect(mock.scheduler.runNow).not.toHaveBeenCalled();
 });
 
+it('disables a one-shot that already fired before the fix when the engine starts', async () => {
+  const engine = await getRoutineEngine();
+  const routine = await engine.put('bot', {
+    name: 'Once', prompt: 'Remind me', enabled: true,
+    triggers: [{ id: 'once', kind: 'once', at: Date.now() + 60_000 }],
+  });
+  const saved = structuredClone(mock.save.mock.calls.at(-1)![0]) as RoutineState;
+  saved.next = {};
+  saved.runs = [{ id: 'fired', routineId: routine.id, revision: routine.revision, triggerIds: ['once'], events: [], status: 'success', createdAt: 1, finishedAt: 2 }];
+  await stopRoutines();
+  mock.load.mockResolvedValue(saved);
+  mock.profiles = [{ id: 'bot', status: 'active' }];
+  const restored = await getRoutineEngine();
+  expect(restored.list('bot')[0]!.enabled).toBe(false);
+  expect(mock.save.mock.calls.at(-1)![0].routines[0]!.enabled).toBe(false);
+});
+
+it('leaves an unfired or never-run one-shot enabled when the engine starts', async () => {
+  const engine = await getRoutineEngine();
+  const unfired = await engine.put('bot', {
+    name: 'Unfired', prompt: 'Remind me', enabled: true,
+    triggers: [{ id: 'once', kind: 'once', at: Date.now() + 60_000 }],
+  });
+  const neverRun = await engine.put('bot', {
+    name: 'Never run', prompt: 'Remind me', enabled: true,
+    triggers: [{ id: 'once', kind: 'once', at: Date.now() + 60_000 }],
+  });
+  const saved = structuredClone(mock.save.mock.calls.at(-1)![0]) as RoutineState;
+  delete saved.next[`${neverRun.id}:once`];
+  saved.runs = [{ id: 'early', routineId: unfired.id, revision: unfired.revision, triggerIds: ['manual'], events: [], status: 'success', createdAt: 1, finishedAt: 2 }];
+  await stopRoutines();
+  mock.load.mockResolvedValue(saved);
+  mock.profiles = [{ id: 'bot', status: 'active' }];
+  const restored = await getRoutineEngine();
+  expect(restored.list('bot').map(routine => routine.enabled)).toEqual([true, true]);
+});
+
 it('keeps an unclassified teammate reminder audible when quiet is omitted', async () => {
   const reminder = await routineTools.save('bot', {
     name: 'Reminder', prompt: 'Remind me to rest', enabled: true,

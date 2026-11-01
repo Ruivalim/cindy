@@ -34,9 +34,31 @@ const ACTIVE_PATCH = { status: 'active' } as const;
  *   用户意图为准,这笔旧写会让位,也不会用过期的行去回滚。
  * - 在途期间被遮蔽的其他控制端推送(例如另一台电脑随后归档了它),成功后要消费遮蔽标记并重新对账。
  * - 传入的 invoke 只应绑定账号归属,不能绑定待发记录的生命周期(记录对账后会被清走)。
+ * - 同一任务的多笔取消归档按顺序执行,后一笔在前一笔结束后重新判断,保证每条被接收的消息都有
+ *   自己的机会(前一笔失败回滚时不会留下已归档的运行中任务)。
  * - 取消归档失败不影响已送达的消息:任务保持已归档,不弹错误。
  */
-export async function unarchiveSessionAfterSend(
+export function unarchiveSessionAfterSend(
+  sessionId: string,
+  deviceId: string,
+  invoke: SessionPatchInvoke,
+  readSession?: () => Promise<Pick<RemoteSession, 'status' | 'orcaRole' | 'source'> | null>,
+): Promise<void> {
+  // 同一任务的取消归档按顺序执行:前一笔乐观改成 active 后,后一条消息若直接返回,前一笔
+  // 失败回滚时这条已被接收的消息就没有自己的取消归档。排在后面的等前一笔结束,再按
+  // 那时的缓存状态重新判断(前一笔成功则无事,失败则重试一轮)。
+  const run = (inFlightByTask.get(sessionId) ?? Promise.resolve())
+    .then(() => unarchiveOnce(sessionId, deviceId, invoke, readSession));
+  inFlightByTask.set(sessionId, run);
+  void run.finally(() => {
+    if (inFlightByTask.get(sessionId) === run) inFlightByTask.delete(sessionId);
+  });
+  return run;
+}
+
+const inFlightByTask = new Map<string, Promise<void>>();
+
+async function unarchiveOnce(
   sessionId: string,
   deviceId: string,
   invoke: SessionPatchInvoke,

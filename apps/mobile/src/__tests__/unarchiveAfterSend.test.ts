@@ -40,6 +40,7 @@ describe('unarchiveSessionAfterSend', () => {
       return new Promise((_resolve, reject) => { fail = reject; });
     });
     const pending = unarchiveSessionAfterSend('s1', 'dev-1', invoke as never);
+    await vi.waitFor(() => expect(invoke).toHaveBeenCalled());
     sessionMetaWriteGuard.begin('s1', ['status']); // 用户随后又归档/删除了这个任务
     fail(new Error('HOST_REJECTED'));
     await pending;
@@ -81,6 +82,21 @@ describe('unarchiveSessionAfterSend', () => {
     await unarchiveSessionAfterSend('s1', 'dev-1', (async () => ({})) as never);
     expect(reseed).not.toHaveBeenCalled();
     reseed.mockRestore();
+  });
+
+  it('gives a second accepted message its own attempt when the first unarchive fails', async () => {
+    remoteSessionStore.setDeviceSessions('dev-1', 'Mac', [session('s1')]);
+    let failFirst: (error: Error) => void = () => {};
+    const invoke = vi.fn()
+      .mockImplementationOnce(() => new Promise((_resolve, reject) => { failFirst = reject; }))
+      .mockResolvedValue({});
+    const first = unarchiveSessionAfterSend('s1', 'dev-1', invoke as never);
+    const second = unarchiveSessionAfterSend('s1', 'dev-1', invoke as never); // 缓存此刻已被乐观改成 active
+    await vi.waitFor(() => expect(invoke).toHaveBeenCalledTimes(1));
+    failFirst(new Error('HOST_REJECTED'));
+    await Promise.all([first, second]);
+    expect(invoke).toHaveBeenCalledTimes(2);
+    expect(statusOf('s1')).toBe('active');
   });
 
   it.each([

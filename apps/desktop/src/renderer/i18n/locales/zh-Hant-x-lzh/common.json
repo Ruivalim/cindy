@@ -1216,7 +1216,6 @@
     "clipboardSyncSkipped": "此格式暫不支援剪貼簿同步，已略之",
     "clipboardSyncTooLarge": "內容逾剪貼簿同步之大小上限，已略之",
     "clipboardSyncPermission": "剪貼簿同步須貼上之權，授之後歸此視窗即復",
-    "clipboardSyncWaiting": "遠方之機的剪貼簿暫不能存取（或已鎖定螢幕），解鎖後將自動續同步。",
     "lockingOnExit": "方鎖定此機…",
     "idleLock": "閒置後斷連並鎖定螢幕",
     "idleNever": "永不",

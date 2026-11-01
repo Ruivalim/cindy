@@ -1228,7 +1228,6 @@
     "clipboardSyncSkipped": "Dieses Format wird bei der Synchronisierung der Zwischenablage nicht unterstützt und wurde übersprungen.",
     "clipboardSyncTooLarge": "Der Inhalt überschreitet die Größenbegrenzung für die Synchronisierung der Zwischenablage und wurde übersprungen.",
     "clipboardSyncPermission": "Die Zwischenablagesynchronisierung benötigt Zugriff zum Einfügen. Erlaube ihn und kehre dann zu diesem Fenster zurück, um fortzufahren.",
-    "clipboardSyncWaiting": "Die Zwischenablage des Remote-Computers ist derzeit nicht verfügbar (möglicherweise ist sie gesperrt). Die Synchronisierung wird automatisch fortgesetzt.",
     "lockingOnExit": "Computer wird gesperrt…",
     "idleLock": "Bei Inaktivität trennen und sperren",
     "idleNever": "Nie",

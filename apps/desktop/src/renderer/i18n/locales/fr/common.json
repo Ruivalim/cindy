@@ -1245,7 +1245,6 @@
     "clipboardSyncSkipped": "Ce format n'est pas pris en charge par la synchronisation du presse-papiers et a été ignoré.",
     "clipboardSyncTooLarge": "Le contenu dépasse la taille maximale de synchronisation du presse-papiers et a été ignoré.",
     "clipboardSyncPermission": "La synchronisation du presse-papiers nécessite l'accès au collage. Autorisez-le, puis revenez à cette fenêtre pour reprendre.",
-    "clipboardSyncWaiting": "Le presse-papiers de l'ordinateur distant n'est pas disponible pour le moment (il est peut-être verrouillé). La synchronisation reprendra automatiquement.",
     "lockingOnExit": "Verrouillage de l'ordinateur…",
     "idleLock": "Déconnecter et verrouiller en cas d'inactivité",
     "idleNever": "Jamais",

@@ -31,7 +31,10 @@ export default {
       if (await expand.count()) await expand.click();
     }
     if (ui.case === 'card') {
-      assert.equal(await page.getByRole('button', { name: await ui.t('bots.directMessage.sentTo', { name: 'Filo' }), exact: true }).count(), 1);
+      const entry = page.getByRole('button', { name: await ui.t('bots.directMessage.sentTo', { name: 'Filo' }), exact: true });
+      assert.equal(await entry.count(), 1);
+      const [row, button] = await Promise.all([page.locator('[data-bot-direct-message]').boundingBox(), entry.boundingBox()]);
+      assert.ok(row && button && Math.abs(row.x - button.x) < 1, 'B2B entry shares the reply column left edge');
       await ui.capture('compact-trace');
       await page.getByRole('button', { name: await ui.t('bots.directMessage.sentTo', { name: 'Filo' }), exact: true }).click();
     }

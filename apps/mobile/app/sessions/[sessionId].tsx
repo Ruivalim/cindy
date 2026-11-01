@@ -5396,8 +5396,7 @@ function SessionScreenContent({ beforeSessionSwitchRef, newSessionActionRef }: S
    * 再检测下一处空洞,要等新消息或重开会话。互斥仍只按 `sid` 判 —— 别的会话残留的那一轮不连坐
    * 当前会话(它自己会在下一次 isCancelled 上收手)。
    */
-  const [backfillInFlightRun, setBackfillInFlightRun] = useState<{ sid: string; seq: number;
-  } | null>(null);
+  const [backfillInFlightRun, setBackfillInFlightRun] = useState<{ sid: string; seq: number } | null>(null);
   useEffect(() => {
     if (isScheduleDetail) return;
     if (!deviceId || !sessionId) return;
@@ -5498,9 +5497,7 @@ function SessionScreenContent({ beforeSessionSwitchRef, newSessionActionRef }: S
     }).finally(() => {
       // 按 **seq** 精确匹配再清:切会话(甚至切回同一会话)后可能已经起了新的一轮,按 sid 比会把
       // 新轮的标记误清、于是又放行一轮,越滚越多(#1210 review 的 P1)。
-      setBackfillInFlightRun((current) =>
-          current?.seq === runSeq ? null : current,
-        );
+      setBackfillInFlightRun((current) => (current?.seq === runSeq ? null : current));
     });
   }, [
     backfillInFlightRun,

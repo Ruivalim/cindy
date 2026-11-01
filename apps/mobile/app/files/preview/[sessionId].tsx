@@ -253,7 +253,7 @@ function RemoteFilePreviewContent() {
   const [htmlPanPageKey, setHtmlPanPageKey] = useState<string | null>(null);
   const [markdownPagerPageKey, setMarkdownPagerPageKey] = useState<string | null>(null);
   const reportHtmlPan = useCallback((key: string, wants: boolean) => {
-    setHtmlPanPageKey((prev) => (wants ? key : prev === key ? null : prev));
+    setHtmlPanPageKey((prev) => (wants ? key : (prev === key ? null : prev)));
   }, []);
   // Markdown WebView 的纵向滚动和宽公式横移保留在内层；正文明确横滑由文档
   // 回调后在这里驱动同一个 pager，避免 WebView 与 FlatList 争抢触摸序列。
@@ -1500,6 +1500,7 @@ function TextPreviewPage({
             <TextDocumentPreview
               text={state.lines.join("\n")}
               initialLine={targetLine}
+              testID={visible ? 'filePreview.sourceReady' : undefined}
             />
           </View>
       )}

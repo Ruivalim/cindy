@@ -116,3 +116,17 @@ Desktop 116 条（媒体原件操作 50、PDF 15、图片标注 13、文本 32�
 | `src/renderer/__tests__/openPathFeedback.test.ts`（5 例） | 生产 IPC 错误分类与应用内 PDF 分派 | 3ms |
 | `src/renderer/components/chat/__tests__/imageClipboardInteractions.test.tsx`（20 例） | 真实更多菜单触发复制/保存/外部打开，保留原件与标注顺序 | 1025ms |
 | `src/renderer/features/bots/__tests__/BotGroupChatView.test.tsx`（218 例） | 真实群聊外壳的 Esc、焦点、草稿与 PDF 分派；原文件较大，未新增等待 | 17580ms |
+
+
+## verify-checks 守卫补充（2026-11-01，继 98d47ccc76）
+
+回读 c49c27d6 的 run 41318261982 / job 124882829110，新增失败来自 Desktop `unsupportedTextPreview` 与 Mobile `filePreviewPagerWiring`、`historyWindowBackfillWiring` 三个旧守卫文件。当前 head 定向复现后采纳：
+
+- Desktop 保留“非文本不能当文本解码”的分类与全部入口检查；把已退役的“PDF/图片/压缩包自动离开 Cindy”源码断言改为执行生产分派，确认非空文件进入应用内、空地址拒绝、不调用系统打开。
+- 文本浏览补回既有 `filePreview.sourceReady` 自动验收标记，只交给已加载且可见的公共阅读器；加载、失败、屏外预取页均不满足该标记。仅增加 testID，没有改变读取、布局或用户操作，沿用本轮之前的两端阅读器实测，不重新启动设备。
+- PDF 稳定性守卫移到实际 PDF.js 公共组件，继续约束文档来源/重试身份以及普通翻页、缩放不能改变文档生成；HTML/Markdown 的手势归属断言保留，在前面增加模型/图表手势保护后不再按旧整行字符串误报。
+- 三处原有表达式/类型仅恢复等价格式（历史补齐 seq 清理、状态类型、HTML 手势页 key），保留所有取消、互斥与授权守卫，不改变历史补齐行为。
+
+定向验证：Desktop 3 用例（文件运行 0.419 秒 / 测试执行 0.006 秒）、Mobile 50 用例（两文件运行 1.98 秒 / 测试执行 0.111 秒）通过。只复用原有测试，不新增 guard 文件或基线豁免；测试依据分别是已批准的应用内附件预览、Maestro 就绪协议、PDF 手势稳定与历史补齐既有不变量。未运行无关全量，也未重开测试实例。
+
+两个受影响包 typecheck、test-hygiene、design-inventory 检查均通过；当前批次自审无未处置问题。

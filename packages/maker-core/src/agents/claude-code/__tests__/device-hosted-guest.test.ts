@@ -255,6 +255,9 @@ describe('Claude Code device-hosted guest sessions', () => {
     }
     const { options } = await startHostedSession(true, { ghostRosterSnapshot: ownerRoster, mcpServers: [] });
     expect(options.systemPrompt?.append).not.toContain(ownerRoster);
+    // 任务所在电脑没有可召回的插件(空快照)：同账号也不能退回本机的花名册。
+    const empty = await startHostedSession(false, { ghostRosterSnapshot: '', mcpServers: ['cindy'] });
+    expect(empty.options.systemPrompt?.append).not.toContain(GHOST_ROSTER);
   });
 
   it('routes only through the shared provider: route token, shared models, no host subagent model', async () => {

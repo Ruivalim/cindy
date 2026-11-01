@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { remoteSessionStore, sessionMetaWriteGuard } from '@/session/remoteSessionStore';
+import { remoteSessionStore, sessionMetaWriteGuard, sessionPendingWrites } from '@/session/remoteSessionStore';
 import { unarchiveSessionAfterSend } from '@/session/unarchiveAfterSend';
 import type { RemoteSession } from '@/session/types';
 
@@ -44,6 +44,43 @@ describe('unarchiveSessionAfterSend', () => {
     fail(new Error('HOST_REJECTED'));
     await pending;
     expect(statusOf('s1')).toBe('active');
+  });
+
+  it('asks the host when the cache no longer has the row, then writes active and reconciles', async () => {
+    const reseed = vi.spyOn(remoteSessionStore, 'requestReseed');
+    const invoke = vi.fn(async () => ({}));
+    await unarchiveSessionAfterSend('s1', 'dev-1', invoke as never, async () => session('s1'));
+    expect(invoke).toHaveBeenCalledWith('dev-1', 'local-db:sessions:patch-meta', ['s1', { status: 'active' }], { preSend: expect.any(Function) });
+    expect(reseed).toHaveBeenCalledWith('dev-1');
+    expect(remoteSessionStore.getSessions()).toHaveLength(0);
+    reseed.mockRestore();
+  });
+
+  it('does nothing when the cache has no row and the host says the task is not archived', async () => {
+    const invoke = vi.fn(async () => ({}));
+    await unarchiveSessionAfterSend('s1', 'dev-1', invoke as never, async () => session('s1', { status: 'active' }));
+    expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it('reconciles when another controller archived it while the write was in flight', async () => {
+    remoteSessionStore.setDeviceSessions('dev-1', 'Mac', [session('s1')]);
+    const reseed = vi.spyOn(remoteSessionStore, 'requestReseed');
+    const invoke = vi.fn(async () => {
+      // 其他控制端的 status 推送在途期间到达,被本机在途写遮蔽。
+      sessionPendingWrites.filterPatch('s1', { status: 'archived' }, { status: 'active' });
+      return {};
+    });
+    await unarchiveSessionAfterSend('s1', 'dev-1', invoke as never);
+    expect(reseed).toHaveBeenCalledWith('dev-1');
+    reseed.mockRestore();
+  });
+
+  it('does not reconcile needlessly after a clean write', async () => {
+    remoteSessionStore.setDeviceSessions('dev-1', 'Mac', [session('s1')]);
+    const reseed = vi.spyOn(remoteSessionStore, 'requestReseed');
+    await unarchiveSessionAfterSend('s1', 'dev-1', (async () => ({})) as never);
+    expect(reseed).not.toHaveBeenCalled();
+    reseed.mockRestore();
   });
 
   it.each([

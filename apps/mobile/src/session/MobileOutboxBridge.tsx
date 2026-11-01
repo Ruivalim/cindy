@@ -316,7 +316,12 @@ export function MobileOutboxBridge() {
         );
         // 电脑已接收这条消息(离线时是重连后才送达):在已归档任务里发消息即取消归档。
         // 绑账号归属而不绑这条待发记录:消息对账后记录会被清走,取消归档不能随之失效。
-        void unarchiveSessionAfterSend(r.item.sessionId, r.deviceId, ownerInvoke);
+        void unarchiveSessionAfterSend(
+          r.item.sessionId,
+          r.deviceId,
+          ownerInvoke,
+          () => createMobileMakerTransport({ deviceId: r.deviceId, invoke: ownerInvoke }).getSession(r.item.sessionId),
+        );
         return projection;
       },
       cancel: async (r) => {

@@ -48,7 +48,6 @@ export * from './android/index.js';
 export * from './browser/index.js';
 export * from './computer/index.js';
 
-export * from './contacts/approval.js';
 
 export { TEAMMATE_CONTROL_GUIDANCE, BOT_CONTROL_GUIDANCE, type BotControlState, type TeammateCapabilityKind } from './xdt-helper/bot_capabilities.js';
 export {

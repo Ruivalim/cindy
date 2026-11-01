@@ -1267,12 +1267,16 @@ export function createCindyGhostsMcpServer(
 
   // 花名册快照:装配时取一次,拼进 ghost_list 描述(语义召回的数据源);
   // system/developer 段由 host 在 session 装配时单独取数,两处共用同一序列化格式。
-  // 无花名册 dep / 空清单 = 描述保持基线。
+  // 无花名册 dep / 空清单 = 描述只多一句 GHOST_NO_BYPASS_RULE（见下）。
   //
   // 只在 ghost_list 描述挂花名册;ghost_info 已知 ghost_id,ghost_call 已知
   // ghost_id + tool,它们都不需要再挂花名册。system 段只由 maker-core 注入一次。
   const roster = formatGhostRoster(deps.getRosterItems?.() ?? []);
-  const dGhostList = roster ? `${D_GHOST_LIST}\n\n${roster}` : D_GHOST_LIST;
+  // 有花名册时前导已带 GHOST_NO_BYPASS_RULE；没有花名册（伙伴、开始时无可见插件、缺工作目录）的
+  // 任务经 ghost_list 发现插件后也不会经过 ghost_info，规则在这里补上，避免重复。
+  const dGhostList = roster
+    ? `${D_GHOST_LIST}\n\n${roster}`
+    : `${D_GHOST_LIST}\n${GHOST_NO_BYPASS_RULE}`;
 
   if (deps.searchMarket) server.tool(
     "ghost_market_search",

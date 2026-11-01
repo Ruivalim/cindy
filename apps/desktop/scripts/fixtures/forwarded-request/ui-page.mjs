@@ -16,7 +16,7 @@ export default {
     rewind: { about: 'Rewind restores the original forwarded envelope in the current draft' },
     quote: { about: 'Reply snapshots and live quote previews use readable text' },
     search: { about: 'Real search results render projected previews and hit snippets' },
-    card: { about: 'Expand a historical private-thread card' },
+    card: { about: 'Open a historical private thread from its compact trace' },
   },
   async check(page, ui) {
     if (ui.case === 'search') {
@@ -30,7 +30,11 @@ export default {
       const expand = page.getByRole('button', { name: await ui.t('chat.userMessage.expandLongMessage'), exact: true });
       if (await expand.count()) await expand.click();
     }
-    if (ui.case === 'card') await page.getByRole('button', { name: await ui.t('bots.directMessage.expandThread'), exact: true }).click();
+    if (ui.case === 'card') {
+      assert.equal(await page.getByRole('button', { name: await ui.t('bots.directMessage.sentTo', { name: 'Filo' }), exact: true }).count(), 1);
+      await ui.capture('compact-trace');
+      await page.getByRole('button', { name: await ui.t('bots.directMessage.sentTo', { name: 'Filo' }), exact: true }).click();
+    }
     await page.getByText('最后一段：只检查，不发布。', { exact: false }).last().waitFor();
     const text = await page.locator('body').innerText();
     assert.ok(text.includes('第一段：消息现在正常换行。'));

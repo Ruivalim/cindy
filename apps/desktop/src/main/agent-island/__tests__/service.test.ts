@@ -7362,7 +7362,7 @@ describe('Agent Island device sessions', () => {
   });
 });
 
-it('does not sound or mark attention for internal coordination completion, but surfaces a failure', async () => {
+it.each([{ botTaskCoordination: true, botPrivateReply: false }, { botPrivateReply: true }])('does not sound or mark attention for internal completion (%j), but surfaces a failure', async (agentMeta) => {
   const { AgentIslandService } = await import('../service.js');
   const publish = vi.fn(() => true);
   const playSound = vi.fn(() => true);
@@ -7373,7 +7373,7 @@ it('does not sound or mark attention for internal coordination completion, but s
   const meta = { sessionId: 'coordination', agentKind: 'codex' as const };
   service.handleAgentEvent(meta, { type: 'status', source: 'codex', data: { isRunning: true } });
   playSound.mockClear();
-  service.handleAgentEvent(meta, { ...doneEvent(), agentMeta: { botTaskCoordination: true, botPrivateReply: false } });
+  service.handleAgentEvent(meta, { ...doneEvent(), agentMeta });
   expect(playSound).not.toHaveBeenCalled();
   expect(service.getSessionActivitySnapshot(meta.sessionId)?.attention).not.toBe(true);
   service.handleAgentEvent(meta, terminalErrorEvent('User action required'));

@@ -816,3 +816,5 @@ describe("table-heavy assistant replies", () => {
     } finally { h.unmount(); }
   });
 });
+
+vi.mock('@/session/RemoteAttachmentPreview', () => ({ RemoteAttachmentPreview: () => null }));

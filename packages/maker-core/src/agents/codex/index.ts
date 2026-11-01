@@ -256,6 +256,7 @@ import { createStdioTransport } from './app-server/stdioTransport.js';
 import { CodexInteractionBroker } from './interaction-broker.js';
 import { SYSTEM_PROMPT_APPEND as MAKER_CODEX_SYSTEM_PROMPT_APPEND } from './system-prompt-append.js';
 import { nativeAutoReviewContinuationConfig } from './native-auto-review-policy.js';
+import { sendCodexApprovalFeedback } from './approval-feedback.js';
 import { MAKER_MEMORY_RULES } from '../../memory/system-prompt.js';
 import {
   CONTACTS_RULES_DISABLED,
@@ -6248,6 +6249,7 @@ assertRouteCurrent();
       unregisterCodexMcpContext(threadId);
       unregisterDescendantCodexMcpContexts();
       activeToolContexts.clear();
+      approvalDenials.clear();
       completedActiveToolTurns.clear();
       capabilitySelectionTextByTurnId.clear();
       capabilitySelectionTextByThreadId.clear();
@@ -7799,6 +7801,8 @@ assertRouteCurrent();
     const userInputBroker = new CodexInteractionBroker<ToolRequestUserInputResponse>();
     const dynamicToolBroker = new CodexInteractionBroker<DynamicToolCallResponse>();
     const activeToolContexts = new Map<string, ActiveToolContext>();
+    const approvalDenials = new Map<string, { turnId: string; reason: string }>();
+    const approvalDenialKey = (thread: string, turn: string, item: string) => JSON.stringify([thread, turn, item]);
     const completedActiveToolTurns = new Map<string, string | null | undefined>();
     // A single model turn can surface the same visible question through both
     // the native requestUserInput request and the dynamic-tool compatibility
@@ -8044,8 +8048,8 @@ assertRouteCurrent();
         itemId?: string;
       },
     ): Promise<{ decision: ApprovalDecision; reason?: string }> {
-      // Reasons stay inside Cindy for Host-owned dynamic tool results. Stock Codex
-      // approval responses cannot carry them into native exec/patch tool output.
+      // Stock Codex approval responses cannot carry reasons. Native exec/patch
+      // receive same-turn feedback below; Host-owned tools return the reason directly.
       const timingPauseId = `approval:${kind}:${requestId}`;
       let denialReason = formatPermissionDenial('system', 'Approval was cancelled or became stale.');
       const decision = await withCodexGenerationPaused<ApprovalDecision>(requestThreadId, turnId, timingPauseId, async () => {
@@ -8229,6 +8233,32 @@ assertRouteCurrent();
             });
         });
       });
+      if (decision === 'decline' && kind !== 'mcpServerElicitation' && requestThreadId && turnId && opts?.itemId) {
+        const live = !closed && isCurrentHost()
+          && (requestThreadId === threadId
+            ? isTurnInFlight && currentTurnId === turnId
+              && !completedTurnIds.has(turnId) && !terminalErroredTurnIds.has(turnId)
+              && turnInterruptOrigins.get(turnId)?.source !== 'user-stop'
+            : !terminalDescendantTurnIds.has(turnId));
+        if (live) {
+          approvalDenials.set(approvalDenialKey(requestThreadId, turnId, opts.itemId), { turnId, reason: denialReason });
+          try {
+            await withCodexGenerationPaused(requestThreadId, turnId, `${timingPauseId}:feedback`, () =>
+              sendCodexApprovalFeedback(
+                (method, params, options) => host.request(method, params, options),
+                { threadId: requestThreadId, turnId, itemId: opts.itemId!, reason: denialReason },
+              ),
+            );
+          } catch {
+            // Content-bearing RPC: a timeout is uncertain delivery, never retry
+            // or start a follow-up turn. The action remains denied either way.
+            log.warn('Codex approval feedback was not acknowledged', { turnId, itemId: opts.itemId });
+            if (!closed && isCurrentHost() && currentTurnId === turnId) {
+              emitAutoReviewRuntimeNotice(`Cindy could not confirm delivery of the permission feedback to Codex. ${denialReason}`);
+            }
+          }
+        }
+      }
       return { decision, ...(decision === 'decline' ? { reason: denialReason } : {}) };
     }
 
@@ -9624,6 +9654,9 @@ assertRouteCurrent();
     }
 
     function clearActiveToolContextsForTurn(turnId: string): void {
+      for (const [key, denial] of approvalDenials) {
+        if (denial.turnId === turnId) approvalDenials.delete(key);
+      }
       for (const [itemId, ctx] of activeToolContexts) {
         if (ctx.turnId === turnId) activeToolContexts.delete(itemId);
       }
@@ -12073,6 +12106,7 @@ assertRouteCurrent();
         dismissAllPending('app_server_force_retired', 'deny');
         dismissAllPendingUserInput('transport_error');
         activeToolContexts.clear();
+        approvalDenials.clear();
         completedActiveToolTurns.clear();
         capabilitySelectionTextByTurnId.clear();
         capabilitySelectionTextByThreadId.clear();
@@ -12593,9 +12627,13 @@ assertRouteCurrent();
             [Symbol.asyncIterator]: () => eventQueue[Symbol.asyncIterator](),
           } as AsyncQueue<AgentEvent>
           : eventQueue;
+        const denialKey = approvalDenialKey(params.threadId, params.turnId, params.item.id);
+        const approvalDenialReason = approvalDenials.get(denialKey)?.reason;
+        approvalDenials.delete(denialKey);
         translateItemNotification('completed', translatedParams, itemEventQueue, {
           rt: translatorRt,
           log,
+          approvalDenialReason,
           onCompactBoundary: handleCompactBoundary,
         });
         // A late V1 spawn completion is the spawn tool closing, not necessarily
@@ -12751,6 +12789,7 @@ assertRouteCurrent();
           subagentLiveCards.clear();
           dismissAllPendingUserInput('transport_error');
           activeToolContexts.clear();
+          approvalDenials.clear();
           completedActiveToolTurns.clear();
           capabilitySelectionTextByTurnId.clear();
           capabilitySelectionTextByThreadId.clear();
@@ -13059,6 +13098,7 @@ assertRouteCurrent();
       unregisterCodexMcpContext(threadId);
       unregisterDescendantCodexMcpContexts();
       activeToolContexts.clear();
+      approvalDenials.clear();
       completedActiveToolTurns.clear();
       capabilitySelectionTextByTurnId.clear();
       capabilitySelectionTextByThreadId.clear();

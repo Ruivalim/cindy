@@ -5060,7 +5060,7 @@ function TeammateProcessContents({ item, actions }: { item: MobileWorkGroupItem;
           <Pressable key={loader.key} accessibilityRole="button"
       onPress={loader.retry} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: colors.textSecondary }}>{t('message.renderer.retryPreview')}</Text></Pressable>))}
     {item.isStreaming && segments.at(-1)?.kind === 'content' && (
-        <TeammateWorkSegment id={`${item.key}:pending`} title={t('chat.teammateProcess.thinking')} running hasTools={false} failed={false} />
+        <TeammateWorkSegment id={`${item.key}:pending`} title={t('chat.teammateProcess.thinking')} running hasTools={false} />
       )}
   </>
   );
@@ -5071,22 +5071,15 @@ function TeammateProcessActivities({ id, items, actions, streaming, last }: {
   const { t } = useTranslation();
   const projection = useMemo(() => projectMobileWorkActivities(items, streaming, true), [items, streaming]);
   const summary = useMemo(() => summarizeTeammateWork(projection.activities), [projection]);
-  const title = teammateWorkSummaryText({ ...summary, thinking: summary.thinking || items.some((child) => child.type === 'thinking') }, streaming, t);
+  const title = teammateWorkSummaryText({ ...summary, thinking: summary.thinking || items.some(child => child.type === 'thinking') }, streaming, t, mobileToolRowWording);
   const layout = useMemo(() => buildMessageContentLayout({ screenWidth: actions.screenWidth }), [actions.screenWidth]);
-  return (
-    <TeammateWorkSegment id={id} title={title} running={streaming && (summary.running || !summary.toolCount)} last={last}
-    hasTools={summary.toolCount > 0} failed={summary.failedCount > 0}>
-    {items.map((child) => child.type === 'tool_group' ? (
-          <View key={child.key}>
-      {(projection.toolActivitiesByChildKey.get(child.key) ?? []).map(
-              (activity) => (
-                <WorkToolActivityRow key={activity.key}
-        activity={activity} actions={actions} contentLayout={layout} />),
-            )}
-    </View>
-        ) : null)}
-  </TeammateWorkSegment>
-  );
+  return <TeammateWorkSegment id={id} title={title} running={streaming && (summary.running || !summary.toolCount)} last={last}
+    hasTools={summary.toolCount > 0}>
+    {items.map(child => child.type === 'tool_group' ? <View key={child.key}>
+      {(projection.toolActivitiesByChildKey.get(child.key) ?? []).map(activity => <WorkToolActivityRow key={activity.key}
+        activity={activity} actions={actions} contentLayout={layout} />)}
+    </View> : null)}
+  </TeammateWorkSegment>;
 }
 
 function WorkGroupCard({

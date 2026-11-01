@@ -117,10 +117,6 @@ import { isInputHandoffDisabledForSession } from '../input-handoff/botPolicy.js'
 import { readHandoffPicture } from '../input-handoff/pictureRef.js';
 import { isIpcError } from '../../shared/ipc-errors.js';
 import type { PluginRegistry } from '../maker-host/plugins/plugin-registry.js';
-import { getDesktopContactsManager } from '../maker-host/maker-contacts-host.js';
-import { broadcastContactsChanged } from '../maker-host/contacts-change-broadcast.js';
-import { readContactsSettings } from '../maker-host/contacts-settings-store.js';
-import { readSystemContacts, writeSystemContacts } from '../maker-host/system-contacts.js';
 import { BUILTIN_LIZI_MCP_IDS, pluginIdForProviderName } from '../maker-host/plugins/builtin-plugins.js';
 import { isFrozenBuiltinPluginAllowed } from './codexBuiltinToolPolicy.js';
 import { GLOBAL_PLUGIN_IDS } from '../maker-host/plugins/types.js';
@@ -738,20 +734,6 @@ export function createDesktopMcpProviders(deps: DesktopMcpProvidersDeps): LiziMc
         return hits;
       },
       logger: createLogger('mcp/cindy_memory'),
-    },
-    // 智能通讯录: 全局单库 manager 懒加载单例; 开关现读 settings store —
-    // 每次 session start 时 provider isEnabled 评估, 关着时 server 整个不注册。
-    contacts: {
-      withAccountDataAccess,
-      getManager: getDesktopContactsManager,
-      isEnabled: () => readContactsSettings().enabled,
-      // 系统通讯录读取仅 macOS 注入(JXA); 缺省时 contacts_import_system 工具不注册。
-      // 静态 import(动态 import 的 vite chunk 副作用会二次注册 IPC handler)
-      ...(process.platform === 'darwin' ? { readSystemContacts, writeSystemContacts } : {}),
-      // agent 经 MCP 直写 store 不经 IPC 层, 变更靠这个回调广播给 renderer
-      // (设置页统计/待确认角标/管理浮层的实时刷新)
-      onMutated: broadcastContactsChanged,
-      logger: createLogger('mcp/cindy_contacts'),
     },
     lsp: {
       pool: deps.lspPool,

@@ -1,9 +1,9 @@
 /**
- * 智能通讯录设备同步的纯加密原语。
+ * 同账号电脑间插件同步（`cindy-brain/deviceSyncSlot.ts`）的纯加密原语。
  *
  * - 每台设备持久化一对 X25519 密钥；
- * - 两台设备用 ECDH 得到共享秘密，再经 HKDF 派生本功能专用 AES-256-GCM 密钥；
- * - AAD 绑定源/目标 deviceId 与本次 transfer，密文被挪给别的设备或分片元数据
+ * - 两台设备用 ECDH 得到共享秘密，再经 HKDF 派生 AES-256-GCM 密钥；
+ * - AAD 绑定源/目标 deviceId 与本次 transfer，密文被挪给别的设备或元数据
  *   被篡改时都会认证失败。
  *
  * 本文件没有 Electron / 文件系统依赖，便于做确定性单测。
@@ -14,53 +14,38 @@ import {
   createPublicKey,
   createCipheriv,
   createDecipheriv,
-  createHmac,
   diffieHellman,
   generateKeyPairSync,
   hkdfSync,
   randomBytes,
-  timingSafeEqual,
   type KeyObject,
 } from 'node:crypto';
 
+// 派生标签沿用最初的智能通讯录同步取值：改动即改 wire，已升级与未升级的电脑之间
+// 插件同步会解密失败。插件同步另在 transferId 里做域隔离。
 const KEY_INFO_PREFIX = 'cindy:contacts-device-sync:v1';
-const LAN_AUTH_INFO = 'cindy:contacts-device-sync:lan-auth:v1';
 const IV_BYTES = 12;
 const TAG_BYTES = 16;
 
-export interface ContactsSyncExportedIdentity {
+export interface DeviceSyncExportedIdentity {
   publicKey: string;
   privateKey: string;
 }
 
-export interface ContactsSyncEncryptedBytes {
+export interface DeviceSyncEncryptedBytes {
   iv: string;
   tag: string;
   ciphertext: Buffer;
 }
 
-export interface ContactsSyncEncryptionContext {
+export interface DeviceSyncEncryptionContext {
   srcDeviceId: string;
   dstDeviceId: string;
   transferId: string;
   totalChunks: number;
 }
 
-export interface ContactsSyncLanAuthContext {
-  kind: 'request' | 'ack';
-  srcDeviceId: string;
-  dstDeviceId: string;
-  challenge: string;
-  senderPublicKey: string;
-  transferId: string;
-  index: number;
-  total: number;
-  iv: string;
-  tag: string;
-  data: string;
-}
-
-export function generateContactsSyncIdentity(): ContactsSyncExportedIdentity {
+export function generateDeviceSyncIdentity(): DeviceSyncExportedIdentity {
   const { publicKey, privateKey } = generateKeyPairSync('x25519');
   return {
     publicKey: exportPublicKey(publicKey),
@@ -72,7 +57,7 @@ export function publicKeyFromPrivate(privateKey: string): string {
   return exportPublicKey(createPublicKey(importPrivateKey(privateKey)));
 }
 
-export function isValidContactsSyncPublicKey(value: unknown): value is string {
+export function isValidDeviceSyncPublicKey(value: unknown): value is string {
   if (typeof value !== 'string' || value.length < 32 || value.length > 256) return false;
   try {
     const key = importPublicKey(value);
@@ -82,12 +67,12 @@ export function isValidContactsSyncPublicKey(value: unknown): value is string {
   }
 }
 
-export function encryptContactsSyncBytes(
+export function encryptDeviceSyncBytes(
   plaintext: Buffer,
   ownPrivateKey: string,
   peerPublicKey: string,
-  context: ContactsSyncEncryptionContext,
-): ContactsSyncEncryptedBytes {
+  context: DeviceSyncEncryptionContext,
+): DeviceSyncEncryptedBytes {
   const key = deriveEncryptionKey(ownPrivateKey, peerPublicKey, context);
   const iv = randomBytes(IV_BYTES);
   const cipher = createCipheriv('aes-256-gcm', key, iv, { authTagLength: TAG_BYTES });
@@ -100,11 +85,11 @@ export function encryptContactsSyncBytes(
   };
 }
 
-export function decryptContactsSyncBytes(
-  encrypted: ContactsSyncEncryptedBytes,
+export function decryptDeviceSyncBytes(
+  encrypted: DeviceSyncEncryptedBytes,
   ownPrivateKey: string,
   peerPublicKey: string,
-  context: ContactsSyncEncryptionContext,
+  context: DeviceSyncEncryptionContext,
 ): Buffer {
   const iv = decodeExactBase64(encrypted.iv, IV_BYTES, 'iv');
   const tag = decodeExactBase64(encrypted.tag, TAG_BYTES, 'tag');
@@ -115,82 +100,21 @@ export function decryptContactsSyncBytes(
   return Buffer.concat([decipher.update(encrypted.ciphertext), decipher.final()]);
 }
 
-/**
- * Authenticate a LAN endpoint with the same pinned X25519 identities used for
- * payload encryption. A replayed multicast beacon cannot produce the fresh
- * request/ack proof, so the sender falls back to relay instead of treating a
- * TCP write to an impostor as delivery.
- */
-export function createContactsSyncLanProof(
-  ownPrivateKey: string,
-  peerPublicKey: string,
-  context: ContactsSyncLanAuthContext,
-): string {
-  const key = deriveSharedKey(ownPrivateKey, peerPublicKey, LAN_AUTH_INFO);
-  return createHmac('sha256', key).update(buildLanAuthMessage(context)).digest('base64');
-}
-
-export function verifyContactsSyncLanProof(
-  proof: string,
-  ownPrivateKey: string,
-  peerPublicKey: string,
-  context: ContactsSyncLanAuthContext,
-): boolean {
-  let provided: Buffer;
-  try {
-    provided = decodeExactBase64(proof, 32, 'LAN proof');
-  } catch {
-    return false;
-  }
-  const expected = Buffer.from(
-    createContactsSyncLanProof(ownPrivateKey, peerPublicKey, context),
-    'base64',
-  );
-  return timingSafeEqual(provided, expected);
-}
-
 function deriveEncryptionKey(
   ownPrivateKey: string,
   peerPublicKey: string,
-  context: ContactsSyncEncryptionContext,
+  context: DeviceSyncEncryptionContext,
 ): Buffer {
   const orderedDeviceIds = [context.srcDeviceId, context.dstDeviceId].sort().join('\u0000');
-  return deriveSharedKey(
-    ownPrivateKey,
-    peerPublicKey,
-    `${KEY_INFO_PREFIX}\u0000${orderedDeviceIds}`,
-  );
-}
-
-function deriveSharedKey(ownPrivateKey: string, peerPublicKey: string, info: string): Buffer {
   const shared = diffieHellman({
     privateKey: importPrivateKey(ownPrivateKey),
     publicKey: importPublicKey(peerPublicKey),
   });
+  const info = `${KEY_INFO_PREFIX}\u0000${orderedDeviceIds}`;
   return Buffer.from(hkdfSync('sha256', shared, Buffer.alloc(0), Buffer.from(info, 'utf8'), 32));
 }
 
-function buildLanAuthMessage(context: ContactsSyncLanAuthContext): Buffer {
-  return Buffer.from(
-    [
-      LAN_AUTH_INFO,
-      context.kind,
-      context.srcDeviceId,
-      context.dstDeviceId,
-      context.challenge,
-      context.senderPublicKey,
-      context.transferId,
-      String(context.index),
-      String(context.total),
-      context.iv,
-      context.tag,
-      context.data,
-    ].join('\u0000'),
-    'utf8',
-  );
-}
-
-function buildAad(context: ContactsSyncEncryptionContext): Buffer {
+function buildAad(context: DeviceSyncEncryptionContext): Buffer {
   return Buffer.from(
     [
       KEY_INFO_PREFIX,

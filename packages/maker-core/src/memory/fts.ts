@@ -7,8 +7,8 @@
  *    standalone 直接支持 snippet() 高亮, 不用维护内容→FTS 同步关系。
  *  - tokenize='porter unicode61' — porter stemming + unicode61 分词。⚠️ unicode61
  *    把**连续 CJK 文本当一个 token** ("数据分析链路"是单 token), 中文子串无法被
- *    phrase MATCH 命中; 因此 search 用 **MATCH + LIKE 兜底** 保证 CJK 召回
- *    (模式对齐 contacts/fts.ts)。不换 trigram: 它对 <3 字符查询(如"边界")返回空,
+ *    phrase MATCH 命中; 因此 search 用 **MATCH + LIKE 兜底** 保证 CJK 召回。
+ *    不换 trigram: 它对 <3 字符查询(如"边界")返回空,
  *    且要重建存量 fts.db 表。
  *  - upsert = DELETE + INSERT (FTS5 没有 ON CONFLICT 子句)。
  *  - 不在 maker-core 加 better-sqlite3 runtime dep — 用 type-only import, 实例由 host

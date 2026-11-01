@@ -1,4 +1,5 @@
 import { isSharedTaskPeer } from '@cindy/device-link';
+import { isExplicitRemoteNotFoundError } from './newSessionWorktree';
 import { isHostManagedSession } from './hostManagedSession';
 import {
   remoteSessionStore,
@@ -7,7 +8,7 @@ import {
   sessionMetaWriteQueue,
   sessionPendingWrites,
 } from './remoteSessionStore';
-import { retryPatchWhileLatest } from './swipeRowRegistry';
+import { pickWriteFields, retryPatchWhileLatest } from './swipeRowRegistry';
 import type { RemoteSession } from './types';
 
 /** 与设备链路 invoke 同形;preSend 是出网前的同步检查点,抛错即放弃这次发送。 */
@@ -80,23 +81,32 @@ async function unarchiveOnce(
   const releasePending = sessionPendingWrites.track(sessionId, fields);
   if (row) remoteSessionStore.applySessionPatch(shardId, sessionId, ACTIVE_PATCH);
   try {
-    const sent = await sessionMetaWriteQueue.enqueue(sessionId, fields, () => retryPatchWhileLatest(
+    const updated = await sessionMetaWriteQueue.enqueue(sessionId, fields, () => retryPatchWhileLatest(
       write.isLatest,
-      (assertStillLatest) => invoke(
+      (assertStillLatest) => invoke<RemoteSession>(
         rpcDeviceId,
         'local-db:sessions:patch-meta',
         [sessionId, ACTIVE_PATCH],
         { preSend: assertStillLatest },
       ),
     ));
-    if (sent && write.isLatest() && (!row || sessionPendingWrites.consumeMaskedPush(sessionId, fields))) {
-      remoteSessionStore.requestReseed(shardId);
+    if (updated && write.isLatest()) {
+      // 与菜单、首页同口径:回包按字段对账(updatedAt 单调下限),再处理被遮蔽的并发推送。
+      const currentUpdatedAt = remoteSessionStore.getSessions()
+        .find((item) => item.id === sessionId)?.updatedAt ?? null;
+      remoteSessionStore.applySessionPatch(shardId, sessionId, pickWriteFields(updated, fields, currentUpdatedAt));
+      if (!row || sessionPendingWrites.consumeMaskedPush(sessionId, fields)) {
+        remoteSessionStore.requestReseed(shardId);
+      }
     }
-  } catch {
-    // 只有仍是最新写才有资格回滚;被后续归档/删除取代时由那笔负责收敛。
-    // 把状态改回 archived 会让行移出列表,与页面里的归档回滚一样整行插回原物理 shard;
-    // 先释放在途登记,否则 upsert 会因 status 在途而被挡掉。
-    if (row && write.isLatest()) {
+  } catch (err) {
+    // 只有仍是最新写才有资格改本机状态;被后续归档/删除取代时由那笔负责收敛。
+    if (row && write.isLatest() && isExplicitRemoteNotFoundError(err)) {
+      // 任务已在电脑端被删除:确定缺失,不要把旧的归档行插回去留下幽灵任务。
+      remoteSessionStore.applySessionPatch(shardId, sessionId, { status: 'deleted' });
+    } else if (row && write.isLatest()) {
+      // 把状态改回 archived 会让行移出列表,与页面里的归档回滚一样整行插回原物理 shard;
+      // 先释放在途登记,否则 upsert 会因 status 在途而被挡掉。
       releasePending();
       const shardName = remoteSessionStore.getSessions()
         .find((item) => item.deviceLinkDeviceId === shardId)?.deviceLinkDeviceName

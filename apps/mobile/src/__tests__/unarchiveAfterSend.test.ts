@@ -99,6 +99,20 @@ describe('unarchiveSessionAfterSend', () => {
     expect(statusOf('s1')).toBe('active');
   });
 
+  it('retires the row instead of reinserting a ghost when the host reports the task gone', async () => {
+    remoteSessionStore.setDeviceSessions('dev-1', 'Mac', [session('s1')]);
+    const invoke = vi.fn(async () => { throw Object.assign(new Error('Session not found'), { code: 'NOT_FOUND' }); });
+    await unarchiveSessionAfterSend('s1', 'dev-1', invoke as never);
+    expect(remoteSessionStore.getSessions().some((item) => item.id === 's1' && item.status === 'archived')).toBe(false);
+  });
+
+  it('reconciles the optimistic row with the host reply', async () => {
+    remoteSessionStore.setDeviceSessions('dev-1', 'Mac', [session('s1')]);
+    const invoke = vi.fn(async () => session('s1', { status: 'active', updatedAt: '2026-02-02T00:00:00.000Z' }));
+    await unarchiveSessionAfterSend('s1', 'dev-1', invoke as never);
+    expect(remoteSessionStore.getSessions().find((item) => item.id === 's1')?.updatedAt).toBe('2026-02-02T00:00:00.000Z');
+  });
+
   it.each([
     ['an active task', session('s1', { status: 'active' })],
     ['a Bot-managed task', session('s1', { source: 'bot' })],

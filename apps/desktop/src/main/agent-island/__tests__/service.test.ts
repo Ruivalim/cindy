@@ -4759,7 +4759,7 @@ describe('AgentIslandService native publishing', () => {
       await vi.advanceTimersByTimeAsync(0);
       // With no old unread, the quiet completion drops out of the activity list.
       // Otherwise retain the old unread, explicitly marking this completion silent.
-      if (oldUnread) expect(source.getSessionActivitySnapshot(meta.sessionId)?.completionNotification).toBe('silent');
+      if (oldUnread) expect(source.getSessionActivitySnapshot(meta.sessionId)).toMatchObject({ completionNotification: 'silent' });
       else expect(source.getSessionActivitySnapshot(meta.sessionId)?.attention).not.toBe(true);
       expect(sourceSound).not.toHaveBeenCalled();
       expect(desktopEvent).not.toHaveBeenCalled();

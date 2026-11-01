@@ -656,6 +656,8 @@ interface ChatInputProps {
   /** Optional local companion call action, separate from one-shot dictation. */
   onStartVoiceConversation?: () => void;
   voiceConversationDisabled?: boolean;
+  /** Why the voice button is unavailable, when the reason is a call elsewhere. */
+  voiceConversationDisabledReason?: string;
   voiceConversationActive?: boolean;
   /**
    * F-QUEUE-DEFER: un-dispatched messages (rendered above the input by
@@ -1292,6 +1294,7 @@ export function ChatInput({
   onBeforeVoiceInputStart,
   onStartVoiceConversation,
   voiceConversationDisabled = false,
+  voiceConversationDisabledReason,
   voiceConversationActive = false,
   pendingQueue,
   queueExpanded = false,
@@ -10210,7 +10213,7 @@ export function ChatInput({
                       <Tip
                         text={
                           mainSlotIsVoice
-                            ? t('bots.voiceMode.startConversation')
+                            ? (voiceConversationDisabledReason ?? t('bots.voiceMode.startConversation'))
                             : queueEditActive
                             ? t('newChat.pendingQueue.editSaveAria')
                             : voiceReleaseToSendActive

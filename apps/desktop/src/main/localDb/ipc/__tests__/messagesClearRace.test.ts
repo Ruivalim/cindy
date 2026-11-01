@@ -204,20 +204,49 @@ describe('message persistence clear boundary', () => {
     });
   });
 
-  it('purges already hidden scheduler prompts and leaves other tombstones', async () => {
-    const insert = sqlite.prepare("INSERT INTO messages (id, client_id, session_id, role, content, agent_meta, created_at, rewind_at) VALUES (?, ?, 's1', 'user', ?, ?, ?, ?)");
+  it('purges only undelivered hidden scheduler prompts and keeps manually rewound history', async () => {
+    const insert = sqlite.prepare("INSERT INTO messages (id, client_id, session_id, role, content, agent_meta, created_at, rewind_at) VALUES (?, ?, 's1', ?, ?, ?, ?, ?)");
     const schedulerMeta = "{\"origin\": {\"kind\": \"scheduler\"}}";
-    insert.run('visible-scheduler', 'sched-live', 'live', schedulerMeta, 1, null);
-    insert.run('hidden-scheduler', 'sched-hidden', 'hidden', schedulerMeta, 2, 50);
-    insert.run('hidden-user', 'user-hidden', 'hello', null, 3, 60);
-    sqlite.prepare('UPDATE sessions SET list_preview = ?, list_message_count = ? WHERE id = ?').run('hidden', 3, 's1');
-    await expect(purgeRewoundSchedulerPrompts(100)).resolves.toEqual({ deleted: 1, sessionIds: ['s1'] });
+    insert.run('visible-scheduler', 'sched-live', 'user', 'live', schedulerMeta, 1, null);
+    // Never reached the vendor: the only row stamped with rewind_at=50.
+    insert.run('hidden-scheduler', 'sched-hidden', 'user', 'hidden', schedulerMeta, 2, 50);
+    insert.run('hidden-user', 'user-hidden', 'user', 'hello', null, 3, 60);
+    // Delivered, then rewound by the user: rewind.commit stamps the prompt and its reply alike.
+    insert.run('manual-prompt', 'sched-manual', 'user', 'manual', schedulerMeta, 4, 70);
+    insert.run('manual-reply', 'reply-manual', 'assistant', 'done', null, 5, 70);
+    // Delivered: dispatch recorded the execution model, even though the row is now alone.
+    insert.run('dispatched-prompt', 'sched-dispatched', 'user', 'dispatched', "{\"origin\": {\"kind\": \"scheduler\"}, \"executionModel\": {\"model\": \"m\"}}", 6, 80);
+    sqlite.prepare('UPDATE sessions SET list_preview = ?, list_message_count = ? WHERE id = ?').run('hidden', 6, 's1');
+    await expect(purgeRewoundSchedulerPrompts(100)).resolves.toEqual({ deleted: 1, sessionIds: ['s1'], cursor: null });
     expect(sqlite.prepare('SELECT id FROM messages ORDER BY created_at').all()).toEqual([
       { id: 'visible-scheduler' },
       { id: 'hidden-user' },
+      { id: 'manual-prompt' },
+      { id: 'manual-reply' },
+      { id: 'dispatched-prompt' },
     ]);
     expect(sqlite.prepare('SELECT list_preview AS preview, list_message_count AS count FROM sessions WHERE id = ?').get('s1')).toEqual({ preview: null, count: null });
-    await expect(purgeRewoundSchedulerPrompts(100)).resolves.toEqual({ deleted: 0, sessionIds: [] });
+    await expect(purgeRewoundSchedulerPrompts(100)).resolves.toEqual({ deleted: 0, sessionIds: [], cursor: null });
+  });
+
+  it('bounds each purge to a window of the rewind index and hands back a cursor', async () => {
+    const insert = sqlite.prepare("INSERT INTO messages (id, client_id, session_id, role, content, agent_meta, created_at, rewind_at) VALUES (?, ?, 's1', 'user', 'x', ?, ?, ?)");
+    const schedulerMeta = "{\"origin\": {\"kind\": \"scheduler\"}}";
+    const total = 620;
+    for (let i = 0; i < total; i += 1) {
+      // Mostly ordinary tombstones; two scheduler prompts sit past the first 500-row window.
+      const meta = i === 510 || i === 600 ? schedulerMeta : null;
+      insert.run(`t-${i}`, `c-${i}`, meta, i, 1_000 + i);
+    }
+    const first = await purgeRewoundSchedulerPrompts(100);
+    expect(first).toEqual({ deleted: 0, sessionIds: [], cursor: 1_499 });
+    const second = await purgeRewoundSchedulerPrompts(100, first.cursor!);
+    expect(second).toEqual({ deleted: 2, sessionIds: ['s1'], cursor: null });
+    expect(sqlite.prepare('SELECT COUNT(*) AS n FROM messages').get()).toEqual({ n: total - 2 });
+    // A page filled to `limit` re-reads the same window before moving on.
+    for (let i = 0; i < 3; i += 1) insert.run(`s-${i}`, `sc-${i}`, schedulerMeta, 2_000 + i, 3_000 + i);
+    await expect(purgeRewoundSchedulerPrompts(2, 2_000)).resolves.toEqual({ deleted: 2, sessionIds: ['s1'], cursor: 2_000 });
+    await expect(purgeRewoundSchedulerPrompts(2, 2_000)).resolves.toEqual({ deleted: 1, sessionIds: ['s1'], cursor: null });
   });
   it('reconciles session attachment refs for a rewound user row', async () => {
     const { collectCindyMediaHashes } = await import('../../../cindy-media/chatAttachments');

@@ -922,21 +922,34 @@ function messageRewindUserAfterClear(readyDb, args) {
   })();
 }
 
+// Mirrors opHandlers/tx.ts: only provably undelivered scheduler prompts (no executionModel,
+// lone rewind_at in the session) are deleted, scanning idx_messages_rewind_at in bounded windows.
+const PURGE_REWOUND_SCAN_WINDOW = 500;
+
 function messagePurgeRewoundSchedulerPrompts(readyDb, args) {
   const payload = asRecord(args, 'message.purgeRewoundSchedulerPrompts args');
   const limit = expectNumber(payload.limit, 'limit');
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 200) {
     throw Object.assign(new Error('limit must be an integer from 1 to 200'), { code: 'INVALID_ARGS' });
   }
+  const cursor = payload.cursor === undefined ? 0 : expectNumber(payload.cursor, 'cursor');
+  const windowSql = 'SELECT rewind_at AS rewindAt FROM messages WHERE rewind_at > ? ORDER BY rewind_at LIMIT ?';
   const selectSql = (
-    "SELECT id, session_id AS sessionId FROM messages "
-    + "WHERE role = 'user' AND rewind_at IS NOT NULL AND json_valid(agent_meta) "
-    + "AND json_extract(agent_meta, '$.origin.kind') = 'scheduler' "
-    + "ORDER BY rewind_at LIMIT ?"
+    "SELECT m.id, m.session_id AS sessionId FROM messages m "
+    + "WHERE m.rewind_at > ? AND m.rewind_at <= ? AND m.role = 'user' AND json_valid(m.agent_meta) "
+    + "AND json_extract(m.agent_meta, '$.origin.kind') = 'scheduler' "
+    + "AND json_extract(m.agent_meta, '$.executionModel') IS NULL "
+    + 'AND NOT EXISTS (SELECT 1 FROM messages o WHERE o.rewind_at = m.rewind_at AND o.session_id = m.session_id AND o.id <> m.id) '
+    + 'ORDER BY m.rewind_at LIMIT ?'
   );
   return readyDb.transaction(() => {
-    const rows = readyDb.prepare(selectSql).all(limit);
-    if (rows.length === 0) return { deleted: 0, sessionIds: [] };
+    const window = readyDb.prepare(windowSql).all(cursor, PURGE_REWOUND_SCAN_WINDOW);
+    if (window.length === 0) return { deleted: 0, sessionIds: [], cursor: null };
+    const windowEnd = window[window.length - 1].rewindAt;
+    const exhausted = window.length < PURGE_REWOUND_SCAN_WINDOW;
+    const rows = readyDb.prepare(selectSql).all(cursor, windowEnd, limit);
+    const nextCursor = rows.length === limit ? cursor : exhausted ? null : windowEnd;
+    if (rows.length === 0) return { deleted: 0, sessionIds: [], cursor: nextCursor };
     const remove = readyDb.prepare(
       "DELETE FROM messages WHERE id = ? AND role = 'user' AND rewind_at IS NOT NULL",
     );
@@ -946,7 +959,7 @@ function messagePurgeRewoundSchedulerPrompts(readyDb, args) {
       'UPDATE sessions SET list_preview = NULL, list_preview_role = NULL, list_message_count = NULL WHERE id = ?',
     );
     for (const sessionId of sessionIds) clearPreview.run(sessionId);
-    return { deleted: rows.length, sessionIds };
+    return { deleted: rows.length, sessionIds, cursor: nextCursor };
   })();
 }
 

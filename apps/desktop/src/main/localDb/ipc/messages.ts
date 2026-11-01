@@ -1364,10 +1364,11 @@ export async function rewindPersistedUserMessageAfterClear(
 
 export async function purgeRewoundSchedulerPrompts(
   limit = 100,
-): Promise<{ deleted: number; sessionIds: string[] }> {
+  cursor = 0,
+): Promise<{ deleted: number; sessionIds: string[]; cursor: number | null }> {
   const ownerScope = captureOwnerBroadcastScope();
-  if (!isOwnerBroadcastScopeCurrent(ownerScope)) return { deleted: 0, sessionIds: [] };
-  return getDbClient().tx('message.purgeRewoundSchedulerPrompts', { limit });
+  if (!isOwnerBroadcastScopeCurrent(ownerScope)) return { deleted: 0, sessionIds: [], cursor: null };
+  return getDbClient().tx('message.purgeRewoundSchedulerPrompts', { limit, cursor });
 }
 export async function dismissErrorMessage(
   sessionId: string,

@@ -1365,6 +1365,20 @@
       "lock-unreadable": "Não foi possível ler ou guardar o bloqueio de manutenção dos dados locais. Verifique o acesso ao diretório de dados e volte a abri-los quando o acesso for restabelecido. Contacte o suporte se o problema persistir.",
       "recovery-busy": "Outra instância de Cindy está a verificar o bloqueio de manutenção dos dados locais. Volte a abrir os dados locais dentro de instantes."
     },
+    "passiveCorrupt": {
+      "title": "Não foi possível recuperar a base de dados partilhada",
+      "description": "O Cindy está a ser executado em modo só de leitura ou partilhado e não irá recuperar nem modificar automaticamente esta base de dados partilhada. Se outra instância utilizar os mesmos userData, feche-a e tente novamente, ou inicie com --isolated."
+    },
+    "corrupt": {
+      "title": "Não é possível abrir a base de dados local",
+      "description": "A base de dados local pode estar danificada ou a ser utilizada por outra instância do Cindy que partilha os mesmos dados. Se houver outra instância aberta, feche-a e tente novamente. Se o problema persistir, nenhuma cópia de segurança utilizável conseguiu restaurá-la automaticamente; copie os detalhes técnicos e partilhe-os com a equipa para obter ajuda na recuperação dos seus dados.",
+      "copy": "Copiar detalhes técnicos"
+    },
+    "initFailed": {
+      "title": "Falha ao iniciar a base de dados local",
+      "description": "Não foi possível iniciar a base de dados local. Tente novamente primeiro. Se continuar a falhar, partilhe com a equipa os detalhes técnicos abaixo.",
+      "retry": "Tentar iniciar a base de dados novamente"
+    },
     "databaseCleanup": {
       "interruptedTitle": "A limpeza da base de dados foi interrompida",
       "interruptedDescription": "A limpeza da base de dados parou inesperadamente. Reinicie Cindy para que possa recuperar com segurança a partir do estado de manutenção guardado.",

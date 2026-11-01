@@ -185,7 +185,7 @@
       },
       "actionCopy": {
         "pending": "Handle the pending request first; the input area will be restored afterward.",
-        "archived": "This session is archived. Restore it before sending more messages.",
+        "archived": "This session is archived. Sending a message unarchives it.",
         "deleted": "This session is deleted and can't be changed.",
         "queuePaused": "The queue is paused. Resume it from the queue panel."
       }
@@ -428,7 +428,7 @@
     "copyLinkAction": "Copy Session Link",
     "unpin": "Unpin",
     "pin": "Pin",
-    "restore": "Restore",
+    "restore": "Unarchive",
     "archive": "Archive",
     "deleteAction": "Delete Session",
     "deleteConversation": "Delete Session",

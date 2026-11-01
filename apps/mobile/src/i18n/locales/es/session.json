@@ -197,7 +197,7 @@
       },
       "actionCopy": {
         "pending": "Primero maneje la solicitud pendiente; el área de entrada se restaurará después.",
-        "archived": "Esta sesión está archivada. Restáuralo antes de enviar más mensajes.",
+        "archived": "Esta sesión está archivada. Al enviar un mensaje, se desarchiva automáticamente.",
         "deleted": "Esta sesión se eliminó y no se puede modificar.",
         "queuePaused": "La cola está en pausa. Reanúdala desde su panel."
       }
@@ -441,7 +441,7 @@
     "copyLinkAction": "Copiar enlace de la sesión",
     "unpin": "Desfijar",
     "pin": "Fijar",
-    "restore": "Restaurar",
+    "restore": "Desarchivar",
     "archive": "Archivar",
     "deleteAction": "Eliminar sesión",
     "deleteConversation": "Eliminar sesión",

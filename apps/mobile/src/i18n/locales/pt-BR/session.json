@@ -197,7 +197,7 @@
       },
       "actionCopy": {
         "pending": "Resolva a solicitação pendente primeiro; a área de entrada será restaurada depois.",
-        "archived": "Esta sessão está arquivada. Restaure-a antes de enviar mais mensagens.",
+        "archived": "Esta sessão está arquivada. Enviar uma mensagem a desarquiva automaticamente.",
         "deleted": "Esta sessão foi excluída e não pode ser alterada.",
         "queuePaused": "A fila está pausada. Retome-a pelo painel da fila."
       }
@@ -441,7 +441,7 @@
     "copyLinkAction": "Copiar link da sessão",
     "unpin": "Desafixar",
     "pin": "Fixar",
-    "restore": "Restaurar",
+    "restore": "Desarquivar",
     "archive": "Arquivar",
     "deleteAction": "Excluir sessão",
     "deleteConversation": "Excluir sessão",

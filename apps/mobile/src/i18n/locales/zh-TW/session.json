@@ -185,7 +185,7 @@
       },
       "actionCopy": {
         "pending": "請先處理待處理請求，完成後輸入區會恢復。",
-        "archived": "任務已封存，還原後才能繼續傳送。",
+        "archived": "任務已封存，傳送訊息會自動取消封存。",
         "deleted": "任務已刪除，無法繼續操作。",
         "queuePaused": "佇列已暫停，可在佇列面板繼續執行。"
       }
@@ -428,7 +428,7 @@
     "copyLinkAction": "複製任務連結",
     "unpin": "取消置頂",
     "pin": "置頂",
-    "restore": "恢復",
+    "restore": "取消歸檔",
     "archive": "歸檔",
     "deleteAction": "刪除任務",
     "deleteConversation": "刪除任務",

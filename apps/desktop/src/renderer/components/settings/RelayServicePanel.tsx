@@ -389,7 +389,7 @@ function AddDevice({
               ) : null}
             </div>
             <DialogFooter>
-              <Button variant="secondary" size="sm" onClick={() => setEnlargeOpen(false)}>
+              <Button variant="secondary" size="sm" palette="confirmation" onClick={() => setEnlargeOpen(false)}>
                 {t(`${k}.close`)}
               </Button>
             </DialogFooter>

@@ -7341,11 +7341,10 @@ function SessionScreenContent({ beforeSessionSwitchRef, newSessionActionRef }: S
       // 消息已由 A 路径落定；若等待期间切到 B，只停止旧 continuation，不能再用
       // A 的附件 id / plan 状态去清理 B 的 composer UI。
       messageAccepted = enqueueAccepted;
+      // 取消归档属于任务本身,不属于页面:电脑已接收就要做,即使用户已离开这个页面。
+      if (enqueueAccepted) void unarchiveSessionAfterSend(sessionId, deviceId, invoke);
       if (!sendScopeStillAlive()) return messageAccepted;
-      if (enqueueAccepted) {
-        setFollowUpEngaged(followUpScope);
-        void unarchiveSessionAfterSend(sessionId, deviceId, invoke);
-      }
+      if (enqueueAccepted) setFollowUpEngaged(followUpScope);
       if (sessionAtSend.permissionMode === 'plan') {
         // 一次性语义(对齐桌面 PR#494 / 产品决策):计划模式只对本条消息生效,发送后
         // 自动恢复进入前的权限档;本条消息通常已按 plan 派发,切换只影响后续消息。

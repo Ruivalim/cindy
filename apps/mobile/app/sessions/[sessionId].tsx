@@ -9505,7 +9505,7 @@ function SessionScreenContent({ beforeSessionSwitchRef, newSessionActionRef }: S
       onOpenPath: openChatPathTarget,
       onLongPressPath: (target) => {
         if (usesSystemActionMenu()) {
-          const rows = chatFileChipMenuRows(target);
+          const rows = chatFileChipMenuRows(target, Platform.OS);
           void showActionMenu({
             cancelLabel: t('session.common.cancel'),
             items: rows.map((row) => ({ key: row.key, label: row.label })),

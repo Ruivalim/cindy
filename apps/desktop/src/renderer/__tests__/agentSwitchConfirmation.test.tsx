@@ -7,6 +7,7 @@ import { ConfirmDialogProvider, useConfirmDialog } from '@/components/ui/confirm
 import {
   AGENT_SWITCH_CONFIRMATION_OVERRIDE_KEY,
   confirmAgentSwitchRisk,
+  relocationKeepsNativeHistory,
 } from '@/components/new-chat/agentSwitchConfirmation';
 
 vi.mock('react-i18next', () => ({
@@ -107,5 +108,20 @@ describe('Agent switch confirmation', () => {
     });
     await waitFor(() => expect(onBrowse).toHaveBeenCalledTimes(2));
     expect(screen.queryByText(COPY.title)).toBeNull();
+  });
+});
+
+// #7573 后同引擎换电脑会复制完整原生记录;跨引擎、分享来源仍只能走摘要,文案不能说成记录已带过去。
+describe('relocationKeepsNativeHistory', () => {
+  const base = { fromAgent: 'claude-code', toAgent: 'claude-code', fromAgentDeviceId: null, toAgentDeviceId: 'mini' };
+
+  it.each([
+    ['same engine between own computers', {}, true],
+    ['back to this computer', { fromAgentDeviceId: 'mini', toAgentDeviceId: null }, true],
+    ['different engine', { toAgent: 'codex' }, false],
+    ['shared target', { toAgentDeviceId: 'share:abc' }, false],
+    ['shared source', { fromAgentDeviceId: 'share:abc' }, false],
+  ])('%s', (_name, override, expected) => {
+    expect(relocationKeepsNativeHistory({ ...base, ...override })).toBe(expected);
   });
 });

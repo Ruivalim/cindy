@@ -166,3 +166,17 @@ Run 41323484318 / job 124898531519 的 Mobile unit 5 例失败来自两个文件
 主干的群聊测试与附件预览测试非重叠合并；查看其新增断言，保留缺失原消息反馈和取消引用不丢草稿。合并树的 `BotGroupChatScreen` 146 例通过（文件运行 4.73 秒，测试执行 1.511 秒）；生成器只定向执行“连续两次生成一致”和“保留人工区”两例，均通过（0.047 秒），不重复上轮已跑的 52 例。设计台账 59 surfaces 最新、12 语言14,766key结构一致。无新增测试或门禁豁免，无全量测试，无测试 App/模拟器启动。原运行证据和补充验收缺口保留；既有 #8369 扫描超时未在本轮改动。
 
 合并树 Desktop / Mobile 两个包类型检查与 diff 检查均通过；保留新 head CI 的真实结论，不因冲突解决而把此前颜色扫描阻塞计为通过。
+
+## 正文渲染冲突处理（2026-11-02，继 2283e8b9）
+
+同步 upstream/main `db723ff786c9b5e8c9e628fab277ff01f38dc185`。唯一冲突文件为 Mobile `MessageRenderer.tsx` 的 3 处正文格式分支：原分支的 JSX 换行与主干 #7726 的静态文本优化重叠。逐段保留主干的 `StaticSpan`、原生 UITextView 子节点及显式字号缩放限幅；普通文字在允许继承时直接返回文本，强调/删除线等不再订阅交互手势上下文。链接、文件路径、图片/视频仍使用原有可交互 span 或附件预览入口，没有回退统一集合、直接音频路由或来源授权。
+
+合并树直接回归：`messageSourceLabelsRender` 38 例、`messageNativeLifecycleContracts` 5 例、`messageMarkdown` 137 例，共 180 例通过（运行 3.64 秒，测试执行 0.469 秒）。Mobile 类型检查及设计台账检查通过，台账仍为 59 surfaces 且无需重写。没有新增或改写测试；主干消息来源/正文断言自动合并后原样通过。
+
+验收前原生指纹核对发现此前设备包已被主干更新淘汰，未使用旧包作验收。iOS 通过正式 rebuild 入口准备当前原生包，Android 按同一 global / mock Expo 环境 prebuild + assembleDebug；两端安装前后核对实际产物/指纹和 Metro 8081 的本工作树归属。实测结果在下文记录，不把构建成功当成运行完成。
+
+运行验收：当前原生包的整包安装校验确认与本机产物一致，iOS `native-matched`，Android 构建 APK 内嵌指纹与当前 Expo Updates fingerprint 相同；Metro 的本工作树身份刷新为 `target-fresh` 后才记录验收。iOS 构建中编译器曾输出 Swift 模块诊断，后自动恢复，正式构建入口以 0 退出并通过指纹校验；没有清数据或改工具链源码。
+
+iOS 浅色与 Android 深色均实际打开现有 rich-answer mock：正文强调、表格、行内代码及代码块正常显示。Android 文字定位等待未命中，返回截图已清晰显示目标正文，随后以独立截图逐项确认，未把文字定位工具的超时当作 UI 渲染失败或通过凭证。两端随后从现有混合消息打开 `code.json`，看见原文与 4/7 集合位置；切到 PDF 3/7，确认页面实际加载（4 个绿方块、3 个紫方块、总数 7），点击关闭返回同一条含附件的消息。没有新建真实任务或伙伴。
+
+截图：[iOS 正文](merge3-ios-markdown.jpg)、[iOS 原文](merge3-ios-code.jpg)、[iOS PDF](merge3-ios-pdf.jpg)、[Android 正文](merge3-android-markdown.jpg)、[Android 原文](merge3-android-code.jpg)、[Android PDF](merge3-android-pdf.jpg)。这里只验证本轮冲突涉及的主干正文优化与现有附件入口共存，原完整格式/来源/设备矩阵缺口继续保留，不宣称所有环境均已验收。两端 App、模拟器及本任务 Metro 已正常退出，保留数据。

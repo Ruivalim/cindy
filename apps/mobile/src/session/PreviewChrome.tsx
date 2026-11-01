@@ -18,6 +18,7 @@ import { useTranslation } from "react-i18next";
 import { Text } from "@/components/AppText";
 import {
   fontWeight,
+  iconSize,
   iconStroke,
   lineHeight,
   radius,
@@ -76,7 +77,7 @@ export function PreviewIconButton({
     >
       <Icon
         color={disabled ? colors.textTertiary : colors.textPrimary}
-        size={20}
+        size={iconSize.action}
         strokeWidth={iconStroke.regular}
       />
     </Pressable>

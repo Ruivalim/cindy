@@ -132,6 +132,14 @@ export function BotGroupMessageAttachments({
   const readyAttachments = attachments.filter(
     (attachment) => !attachment.state,
   );
+  const openDeviceFile = (attachment: BotGroupAttachment | undefined) => {
+    if (!attachment) return;
+    if (!attachment.url && !attachment.path) {
+      Alert.alert(attachment.name, t("groupChat.files.onComputer"));
+      return;
+    }
+    setDeviceFile(attachment);
+  };
   const open = (payload: MessagePayload) => {
     if (payload.kind === "media") {
       setDeviceCollection([...readyAttachments]);
@@ -156,8 +164,7 @@ export function BotGroupMessageAttachments({
               index: deviceCollection.findIndex(
                 (item) => item.id === deviceFile.id,
               ),
-              onSelect: (index) =>
-                setDeviceFile(deviceCollection[index] ?? null),
+              onSelect: (index) => openDeviceFile(deviceCollection[index]),
             }
           : undefined
       }
@@ -181,7 +188,7 @@ export function BotGroupMessageAttachments({
             onOpen={open}
             onOpenFile={(index) => {
               setDeviceCollection([...readyAttachments]);
-              setDeviceFile(run.attachments[index] ?? null);
+              openDeviceFile(run.attachments[index]);
             }}
             onResolveRemoteMedia={onResolveRemoteMedia}
             usePreviewState={useState}

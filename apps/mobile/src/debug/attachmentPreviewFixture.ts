@@ -45,6 +45,12 @@ const files: Record<
     inlineBase64:
       "IyBBdHRhY2htZW50IHByZXZpZXcKCkEgKipyZWFkYWJsZSoqIGRvY3VtZW50LgoKfCBGaWxlIHwgU3RhdGUgfAp8IC0tLSB8IC0tLSB8CnwgUERGIHwgUmVhZHkgfAo=",
   },
+  "large.json": {
+    ossKey: "",
+    mimeType: "application/json",
+    size: 48_895,
+    inlineBase64: globalThis.btoa(Array.from({ length: 10_001 }, (_, index) => String(index)).join("\n")),
+  },
   "code.json": {
     ossKey: "",
     mimeType: "application/json",

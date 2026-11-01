@@ -1,5 +1,6 @@
+import { LegendList, type LegendListRef } from "@legendapp/list/react-native";
 import { useMemo, useRef, useState } from "react";
-import { Alert, FlatList, ScrollView, TextInput, View } from "react-native";
+import { Alert, ScrollView, TextInput, View } from "react-native";
 import {
   Copy,
   Search,
@@ -19,8 +20,10 @@ import { PreviewIconButton } from "./PreviewChrome";
 export function TextDocumentPreview({
   text,
   initialLine,
+  testID,
 }: {
   text: string;
+  testID?: string;
   initialLine?: number | null;
 }) {
   const { colors } = useTheme();
@@ -30,11 +33,14 @@ export function TextDocumentPreview({
   const [match, setMatch] = useState(0);
   const [wrap, setWrap] = useState(true);
   const [numbers, setNumbers] = useState(true);
-  const list = useRef<FlatList<string>>(null);
+  const list = useRef<LegendListRef>(null);
+  const scrollToLine = (index: number) => {
+    void list.current?.scrollToIndex({ index, viewPosition: 0.3, animated: false });
+  };
   const initialPosition = useRef<{ text: string; line?: number | null } | null>(
     null,
   );
-  const lines = useMemo(() => text.split(/\r?\n/), [text]);
+  const { lines, truncated } = useMemo(() => splitTextPreviewLines(text), [text]);
   const hits = useMemo(
     () =>
       query
@@ -50,19 +56,16 @@ export function TextDocumentPreview({
     const next = (index + hits.length) % hits.length;
     if (!hits.length) return;
     setMatch(next);
-    list.current?.scrollToIndex({
-      index: hits[next],
-      viewPosition: 0.3,
-      animated: false,
-    });
+    scrollToLine(hits[next]!);
   };
   const reader = (
-    <FlatList
+    <LegendList
+      estimatedItemSize={20}
       ref={list}
+      testID={testID}
       data={lines}
       keyExtractor={(_, index) => String(index)}
-      initialNumToRender={40}
-      onLayout={() => {
+      onLoad={() => {
         if (
           initialPosition.current?.text === text &&
           initialPosition.current.line === initialLine
@@ -70,17 +73,8 @@ export function TextDocumentPreview({
           return;
         initialPosition.current = { text, line: initialLine };
         if (initialLine && initialLine > 0 && initialLine <= lines.length)
-          list.current?.scrollToIndex({
-            index: initialLine - 1,
-            animated: false,
-          });
+          scrollToLine(initialLine - 1);
       }}
-      onScrollToIndexFailed={({ averageItemLength, index }) =>
-        list.current?.scrollToOffset({
-          offset: averageItemLength * index,
-          animated: false,
-        })
-      }
       contentContainerStyle={{ padding: spacing.md }}
       style={{ flex: 1 }}
       renderItem={({ item, index }) => (
@@ -207,6 +201,11 @@ export function TextDocumentPreview({
           />
         </View>
       ) : null}
+      {truncated ? (
+        <Text style={[textStyles.caption, { padding: spacing.sm, color: colors.textSecondary }]}>
+          {t("groupChat.server.attachmentPreviewTruncated")}
+        </Text>
+      ) : null}
       {wrap ? (
         reader
       ) : (
@@ -216,4 +215,23 @@ export function TextDocumentPreview({
       )}
     </View>
   );
+}
+
+// Keep the previous JSON rendering budget for every source reader. Copy uses the original text.
+function splitTextPreviewLines(text: string): { lines: string[]; truncated: boolean } {
+  const lines: string[] = [];
+  let start = 0;
+  let characters = 0;
+  while (lines.length < 10_000 && characters < 100_000) {
+    const end = text.indexOf('\n', start);
+    const lineEnd = end < 0 ? text.length : end > start && text.charCodeAt(end - 1) === 13 ? end - 1 : end;
+    const line = text.slice(start, lineEnd);
+    const visible = line.slice(0, Math.min(4_096, 100_000 - characters));
+    lines.push(visible);
+    characters += visible.length;
+    start = end < 0 ? text.length : end + 1;
+    if (visible.length < line.length) return { lines, truncated: true };
+    if (end < 0) return { lines, truncated: false };
+  }
+  return { lines, truncated: start < text.length };
 }

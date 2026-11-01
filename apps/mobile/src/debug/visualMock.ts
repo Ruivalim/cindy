@@ -705,6 +705,7 @@ function visualMockMessages(sessionId: string): RemoteMessage[] {
             "sample.mp4",
             "sample.pdf",
             "code.json",
+            "large.json",
             "cube.gltf",
             "flow.mmd",
           ].map((name) => ({ name, path: `/attachment-preview/${name}` })),

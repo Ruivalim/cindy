@@ -4739,8 +4739,7 @@ function SessionScreenContent({ beforeSessionSwitchRef, newSessionActionRef }: S
   } | null>(null);
   useEffect(() => {
     if (creationStartedAt !== null && sessionId) setCreationTurnStart({ sessionId, startedAt: creationStartedAt });
-    else setCreationTurnStart((prev) =>
-        prev?.sessionId === sessionId && showComposerActivity ? prev : null);
+    else setCreationTurnStart((prev) => (prev?.sessionId === sessionId && showComposerActivity ? prev : null));
   }, [creationStartedAt, sessionId, showComposerActivity]);
   const creationTurnStartedAt = creationTurnStart?.sessionId === sessionId ? creationTurnStart.startedAt : null;
   const composerActivityStartedAtMs = creationTurnStartedAt ?? remoteSessionRunStatus.startedAt ?? composerActivityStartedAt;
@@ -10649,8 +10648,7 @@ function SessionScreenContent({ beforeSessionSwitchRef, newSessionActionRef }: S
               error={goalError}
               goal={goalStatus}
               initial={goalRestoreForSession}
-              initialObjective={goalRestoreForSession ? undefined : draftRef.current.trim() || undefined
-                    }
+              initialObjective={goalRestoreForSession ? undefined : (draftRef.current.trim() || undefined)}
               onClearGoal={handleClearGoal}
               onPauseGoal={handlePauseGoal}
               onResumeGoal={handleResumeGoal}

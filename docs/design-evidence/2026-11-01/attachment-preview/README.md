@@ -70,3 +70,49 @@ Desktop 116 条（媒体原件操作 50、PDF 15、图片标注 13、文本 32�
 | `scripts/__tests__/design-inventory.test.mjs` 的圆角用例 | 独立 JSX 样本含一个 class 和一个内联圆角、一个注释；生产生成器数为 2 | CI 两个失败 job 均因固定旧 ImageLightbox 圆角数量；改为验证统计规则，不固定产品几何数量，integration 定向用例；0.046 秒 |
 
 独立样本替代旧界面圆角计数不修改扫描器、台账口径或测试基线。没有扩展到与本目标无关的功能。
+
+## CI 分片修复（2026-11-01，继 c49c27d6）
+
+回读旧 head e57cc5e6 的完整 Linux/Windows 四分片：附件相关失败命中 20 个测试文件；另有 Windows agent-island 三个 60 秒超时，代码未被本 PR 改动、范围外，另开 [#8361](https://github.com/makecindy/cindy/issues/8361)，未弱化其断言或延长超时。Desktop Git integration / verify-checks / Windows runner and database checks 的同一个 design-inventory 固定旧圆角数量问题已由 c49c27d6 修复。
+
+本轮保留批准的应用内 PDF、更多菜单、主题背板和焦点约束；更新旧行为断言及 Node 环境的原生预览替身。复制、标注烧录顺序、本地/远程/SSH 来源、错误分类、菜单键盘、群聊草稿、缓存页索引、可见性取件和重新授权断言仍验证实际生产调用。
+
+发现并修复的实质问题：
+
+- 图表打开时先聚焦公共外壳，避免自动聚焦工具按钮后 Tooltip 消耗第一次 Esc。桌面实际生产组件打开图表，确认焦点在外壳，一次 Esc 即关闭。
+- 文本公共阅读器保留原 JSON 的 10,000 行、100,000 字符、单行 4,096 字符预算；截断提示可见，复制仍取完整原文。禁用预算后，三个原有截断用例均失败。
+- 长文档匹配跳转：RN FlatList 将跳转钳制在已量出的尾部，实测查找 9999 却停在前面行。改用项目已有的 LegendList，以估高与实际行高定位，保留虚拟化、换行和行号；删除失败滚动重试路径。
+- 电脑群附件缺少 url/path 时恢复原有明确提示；集合切换到同一类条目也保留提示与当前预览。直接相关群聊测试通过；没有真实账号群的设备实测，不把这项说成已实测。
+- 移动端图标 20px 改用现有 iconSize.action（数值不变）。两处原表达式仅恢复格式；没有改变任务行为。
+
+设备证据：Desktop 图表与 iOS 浅色 / Android 深色源阅读器均在本工作树的隔离测试版运行。手机使用开发 mock 中 10,001 行的 large.json；验证截断、查找第 10,000 行、滚动与关闭，测试数据不写正式库。其它 Windows、平板和真实远程/SSH/ChatServer/插件账号的补充验收缺口沿用前文，不宣称整体可合并。
+
+测试价值（复用原有文件，不新增基线豁免）：BotGroupTextAttachmentPreview 的预算用例原本验证旧专用阅读器，现在经公共生产阅读器；256,000 字符一行仍只能显示 4,096 字符但复制完整原文。新增一个 unit 用例验证查找 9999 到生产列表调用 index=9999，实际滚动由两端截图验证。文件单独运行 1.21 秒（19 个用例，测试执行 0.087 秒）。其它修改均为已有场景的交互契约/平台替身更新，保留原风险断言。
+
+本轮直接验证合计：Desktop 6 文件 287 用例；Mobile 14 文件 450 用例；两个包 typecheck、design-inventory 生成检查与定向生成器测试、test-hygiene、DCO 均通过。没有运行无关全量。静态接线检查只容忍等价换行/括号，未放松调用顺序与条件。
+
+截图：[Desktop 图表初始焦点](ci-desktop-mermaid-focus.png)、[iOS 截断](ci-ios-text-cap.jpg)、[iOS 第 10,000 行](ci-ios-text-search.jpg)、[Android 截断](ci-android-text-cap.jpg)、[Android 第 10,000 行](ci-android-text-search.jpg)。iOS 浅色、Android 深色；这不等于所有端/主题的完整矩阵均已实测。测试实例退出并保留隔离数据与登录态，本轮仅使用合成 mock 任务，未新增真实伙伴、真实任务或群记录。
+
+已有失败文件的定向执行记录（复用原文件，无新文件）：
+
+| 文件 | 原风险/保留的入口 | 测试执行耗时 |
+| --- | --- | --- |
+| `src/__tests__/BotGroupChatScreen.test.tsx`（146 例） | 真实群屏与取件回调，包含缺地址反馈、视口取件与按 ID 授权 | 1399ms |
+| `src/__tests__/BotGroupMessageAttachments.test.tsx`（14 例） | 已有场景按统一预览的入口/原生边界更新，保留原行为断言 | 105ms |
+| `src/__tests__/BotGroupTextAttachmentPreview.test.tsx`（19 例） | 公共源阅读器预算、原文复制、远行查找；unit 最小输入见上文 | 90ms |
+| `src/__tests__/blurBackdropScrim.test.ts`（5 例） | 已有场景按统一预览的入口/原生边界更新，保留原行为断言 | 41ms |
+| `src/__tests__/chatFileChipMenuModel.test.ts`（6 例） | 已有场景按统一预览的入口/原生边界更新，保留原行为断言 | 4ms |
+| `src/__tests__/designTokenDiscipline.test.ts`（3 例） | 已有场景按统一预览的入口/原生边界更新，保留原行为断言 | 790ms |
+| `src/__tests__/fileChipNameWidth.test.tsx`（7 例） | 已有场景按统一预览的入口/原生边界更新，保留原行为断言 | 39ms |
+| `src/__tests__/filePreviewCacheRendering.test.tsx`（4 例） | 缓存页面与公共集合栏索引，刷新/失败仍保留选择 | 32ms |
+| `src/__tests__/messageMediaThumbnailWiring.test.ts`（12 例） | 已有场景按统一预览的入口/原生边界更新，保留原行为断言 | 46ms |
+| `src/__tests__/messageSourceLabelsRender.test.tsx`（37 例） | 已有场景按统一预览的入口/原生边界更新，保留原行为断言 | 255ms |
+| `src/__tests__/newSession.test.ts`（173 例） | 已有场景按统一预览的入口/原生边界更新，保留原行为断言 | 525ms |
+| `src/__tests__/pluginAttachmentBubble.test.tsx`（16 例） | 已有场景按统一预览的入口/原生边界更新，保留原行为断言 | 174ms |
+| `src/__tests__/sessionComposerDesktopFirst.test.ts`（7 例） | 已有场景按统一预览的入口/原生边界更新，保留原行为断言 | 49ms |
+| `src/renderer/__tests__/chatImageView.test.ts`（38 例） | 已有场景按统一预览的入口/原生边界更新，保留原行为断言 | 309ms |
+| `src/renderer/__tests__/chatMediaLightboxFocus.test.ts`（3 例） | 已有场景按统一预览的入口/原生边界更新，保留原行为断言 | 604ms |
+| `src/renderer/__tests__/chatVideoView.test.ts`（3 例） | 已有场景按统一预览的入口/原生边界更新，保留原行为断言 | 217ms |
+| `src/renderer/__tests__/openPathFeedback.test.ts`（5 例） | 生产 IPC 错误分类与应用内 PDF 分派 | 3ms |
+| `src/renderer/components/chat/__tests__/imageClipboardInteractions.test.tsx`（20 例） | 真实更多菜单触发复制/保存/外部打开，保留原件与标注顺序 | 1025ms |
+| `src/renderer/features/bots/__tests__/BotGroupChatView.test.tsx`（218 例） | 真实群聊外壳的 Esc、焦点、草稿与 PDF 分派；原文件较大，未新增等待 | 17580ms |

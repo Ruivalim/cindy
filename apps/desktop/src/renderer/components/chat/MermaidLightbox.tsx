@@ -65,6 +65,7 @@ export function MermaidLightbox({ svg, source, onAnnotate, onClose }: MermaidLig
   const isClosingRef = useRef(false);
   const isWheelingRef = useRef(false);
   const wheelIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<LightboxViewport>({ scale: 1, tx: 0, ty: 0 });
@@ -246,8 +247,11 @@ export function MermaidLightbox({ svg, source, onAnnotate, onClose }: MermaidLig
   }
 
   const overlay = (
-    <FocusScope onUnmountAutoFocus={restorePreviewFocus} trapped loop asChild>
+    <FocusScope onUnmountAutoFocus={restorePreviewFocus} trapped loop asChild
+      onMountAutoFocus={(event) => { event.preventDefault(); overlayRef.current?.focus(); }}
+    >
       <div
+      ref={overlayRef}
       data-mermaid-lightbox-overlay
       data-lightbox-layer
       style={{

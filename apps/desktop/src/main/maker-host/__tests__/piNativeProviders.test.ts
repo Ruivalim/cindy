@@ -3006,6 +3006,22 @@ it('uses the resolved BYOM catalog without borrowing its route or credentials', 
   expect(result.env[result.providers[0]!.apiKeyEnvVar!]).toBe('fixture-key');
 });
 
+it.each(['field', 'model'] as const)('inherits a text-only default when the user projection lacks the %s', (missing) => {
+  const cfg: Cfg = { id: 'xai', name: 'My gateway', runtimes: { pi: piRuntime({
+    baseUrl: 'https://user.example/v1', catalogPresetId: 'xai', models: [{ id: 'same-model' }],
+  }) } };
+  const model = { id: 'same-model', name: 'Builtin', contextWindow: 123456,
+    efforts: [], defaultEffort: null };
+  const catalog: Catalog = { ...BUNDLED_CATALOG, providers: [
+    { ...BUNDLED_CATALOG.providers[0]!, id: 'xai',
+      models: { pi: [{ ...model, supportsImageInput: false }] } },
+    { ...BUNDLED_CATALOG.providers[0]!, id: 'custom:xai', source: 'user',
+      models: { pi: missing === 'model' ? [] : [model] } },
+  ] };
+  const result = buildPiNativeProvidersFromConfigs([cfg], () => 'fixture-key', undefined, undefined, catalog);
+  expect(result.providers[0]!.models[0]!.input).toEqual(['text']);
+});
+
 it.each([true, false])('keeps local image override %s above the custom connection form', (supportsImageInput) => {
   const cfg = { id: 'xai', name: 'My gateway', runtimes: { pi: {
     baseUrl: 'https://user.example/v1', wireProtocol: 'openai-chat' as const,

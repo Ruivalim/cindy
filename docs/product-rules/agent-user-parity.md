@@ -64,6 +64,7 @@ Agent 新建普通独立任务（`send_to_session` create 与 `start_session_tas
 | 任务     | 列出、搜索、读聊天记录、发现电脑                           | 有   | 有               |
 | 任务     | 获取可直接引用的任务链接（列表、搜索、聊天记录与摘要返回 sessionUrl） | 有 | 有（链接携带所属电脑；旧远端查询结果由调用端补齐） |
 | 任务     | 读摘要（状态、最后的要求与回答、模型路线、PR、排队数）     | 有   | 有（2026-10-17） |
+| GitHub | 查询明确 PR 的 CI、评审和变化；明确关联、移除、恢复、固定、排序 | 有（桌面与手机关联管理） | 有：helper `github` 类目，同账号跨电脑；脚本 `github.read` |
 | 任务     | 给既有任务发消息                                           | 有   | 有（2026-10-14） |
 | 任务     | 新建任务（继承项目、选择已有项目或不绑项目，执行目录独立）   | 有   | 无               |
 | 任务     | 归档 / 取消归档                                             | 有   | 有（2026-10-16） |
@@ -220,3 +221,5 @@ Bearer、PUT 票据或受管文件路径。公开写入遵循当前任务 Full A
 自动化与例行任务的插件前置检查（2026-10-31）：桌面「前置检查」与 `schedule_create` / `schedule_update` / `routine_save` 共用 `preRunPlugin`（插件实例 id + 出错处理），Agent 与用户能力一致；只能在插件所在的电脑上设置，跨电脑的 `schedule_update` 明确拒绝。
 
 伙伴例行任务送达与发现（2026-10-30）：Pi 直接 `routine_save` 与 helper 同时提供 `modelOverride`、`sessionMode`、`delivery`；伙伴 essential tools 提供 `schedule_list_models` 和 `routine_delivery_targets`。价格与能力来自实际连接来源，保留 unknown；本机位置 `local` 保存为 null。桌面、Agent 和另一电脑上的设置共用 `routineTools`，默认结果直接显示在发起伙伴主任务；显式处理才唤醒模型，IM 只使用已连接机器人的已知收件人。执行和送达失败分开记录，静默检查仍静默。
+
+GitHub 查询与关联的独立语义、缓存和游标合同见 [GitHub 状态与关联](github-status-and-associations.md)。

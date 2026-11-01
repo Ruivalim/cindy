@@ -14642,6 +14642,7 @@
           "hint": "頂列最多顯示 3 個，固定的 PR 優先顯示",
           "empty": "貼上 GitHub PR 連結即可新增",
           "removed": "已移除 {{count}} 個",
+          "legacy": "未確認的歷史引用：{{count}}",
           "addLabel": "新增 PR 連結",
           "add": "新增 PR",
           "loading": "正在讀取…",
@@ -15145,6 +15146,7 @@
         "timeout": "超時（秒，可選）",
         "timeoutPlaceholder": "不限制",
         "capabilities": {
+          "github_read": "讀取 GitHub",
           "jira_read": "讀取 Jira",
           "jira_comment": "評論 Jira",
           "sessions_dispatch": "派發任務",
@@ -15156,6 +15158,7 @@
         "capabilitiesSearch": "搜尋能力",
         "capabilitiesEmpty": "沒有匹配的能力",
         "capabilityDescs": {
+          "github_read": "讀取 PR、CI、評審與觀察到的變化；查詢不會關聯任務",
           "jira_read": "查詢與讀取 Jira 單（按 key 讀取 / JQL 搜尋）",
           "jira_comment": "向 Jira 單新增評論",
           "sessions_dispatch": "建立或喚醒 {{appName}} 任務並投遞訊息",

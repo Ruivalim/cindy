@@ -1,3 +1,4 @@
+import { githubPrVisualFixture } from './githubPrVisualFixture';
 import { groupMaskVisualFixture } from './groupMaskVisualFixture';
 import { groupSettingsVisualFixture } from './groupSettingsVisualFixture';
 import { sessionImportVisualFixture } from './sessionImportVisualFixture';
@@ -222,6 +223,8 @@ async function visualMockInvoke<T = unknown>(
   channel: string,
   args: unknown[] = [],
 ): Promise<T> {
+  const github = githubPrVisualFixture(channel, args[0]);
+  if (github !== undefined) return github as T;
   const mask = groupMaskVisualFixture(channel, args[0]);
   if (mask !== undefined) return mask as T;
   const groupSettings = groupSettingsVisualFixture(channel, args[0]);

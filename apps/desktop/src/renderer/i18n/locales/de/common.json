@@ -14742,6 +14742,7 @@
           "hint": "Bis zu 3 in der Kopfzeile; angeheftete PRs erscheinen zuerst",
           "empty": "Füge zum Hinzufügen einen GitHub-PR-Link ein",
           "removed": "Entfernt: {{count}}",
+          "legacy": "Unbestätigte Verweise: {{count}}",
           "addLabel": "PR-Link hinzufügen",
           "add": "PR hinzufügen",
           "loading": "Wird geladen…",
@@ -15245,6 +15246,7 @@
         "timeout": "Zeitlimit (Sekunden, optional)",
         "timeoutPlaceholder": "Kein Zeitlimit",
         "capabilities": {
+          "github_read": "GitHub lesen",
           "jira_read": "Jira lesen",
           "jira_comment": "In Jira kommentieren",
           "sessions_dispatch": "Sitzungen zuweisen",
@@ -15256,6 +15258,7 @@
         "capabilitiesSearch": "Fähigkeiten suchen",
         "capabilitiesEmpty": "Keine passenden Fähigkeiten",
         "capabilityDescs": {
+          "github_read": "PRs, CI, Reviews und beobachtete Änderungen lesen, ohne Aufgaben zu verknüpfen",
           "jira_read": "Jira-Vorgänge lesen (per Schlüssel / JQL-Suche)",
           "jira_comment": "Kommentare zu Jira-Vorgängen hinzufügen",
           "sessions_dispatch": "{{appName}}-Sitzungen erstellen oder aktivieren und Nachrichten zustellen",

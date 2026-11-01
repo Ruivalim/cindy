@@ -1,3 +1,5 @@
+import { readGithub, manageGithubPrs } from '../git-context/githubReadRuntime';
+import type { GithubReadMethod } from '@cindy/maker-shared';
 import { reportTaskDelivery } from '../bot-autonomy/hub.js';
 import { todoForCaller } from '../maker-ipc/botTodoAccess.js';
 import { getDeviceId } from '../authManager.js';
@@ -775,6 +777,29 @@ export function createDesktopMcpProviders(deps: DesktopMcpProvidersDeps): LiziMc
     // 启动早期跑, 那时 registerMakerIpc 还没执行, holder 是 null; 回调真正被调时
     // (LLM 调工具时) registerMakerIpc 早已执行完毕, holder 已 ready。
     xdtHelper: {
+      github: { call: (caller, method, args) => withAccountDataAccess(caller, async assertCurrent => {
+        const session = typeof args.session_id === 'string' ? args.session_id : caller;
+        const parts = session.split('::');
+        if (parts.length > 2 || parts.some(part => !part)) throw new Error('INVALID_SESSION');
+        const device = typeof args.device === 'string' && args.device !== 'local' ? args.device : parts.length === 2 ? parts[0] : undefined;
+        if (parts.length === 2 && device !== parts[0]) throw new Error('DEVICE_MISMATCH');
+        const localArgs = { ...args, session_id: parts.at(-1) };
+        await assertCurrent();
+        if (device && device !== getDeviceId()) {
+          if (!deps.historyRemote) throw new Error('REMOTE_GITHUB_UNAVAILABLE');
+          const assertAccess = deps.historyRemote.captureAccess();
+          const remote = await deps.invokeRemote(device, 'git-context:github-read', [{ method, args: localArgs }], { preSend: assertAccess });
+          assertAccess();
+          await assertCurrent();
+          if (!remote.ok) return { ok: false, errorCode: remote.error?.message?.startsWith('GITHUB_READ_UNSUPPORTED') ? 'GITHUB_READ_UNSUPPORTED' : 'REMOTE_GITHUB_UNAVAILABLE', error: remote.error };
+          return remote.result as Record<string, unknown>;
+        }
+        const result = method === 'manage_session_prs'
+          ? await manageGithubPrs(parts.at(-1)!, localArgs, `agent:${caller}`)
+          : await readGithub(method as GithubReadMethod, localArgs);
+        await assertCurrent();
+        return result;
+      }) },
       getSessionProject: readCurrentSessionProject,
       runtimeCapabilities: deps.runtimeCapabilities,
       productHelpDocs: HELP_KNOWLEDGE,

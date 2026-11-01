@@ -14642,6 +14642,7 @@
           "hint": "上部に最大 3 件表示。固定した PR を優先します",
           "empty": "GitHub PR のリンクを貼り付けて追加",
           "removed": "削除済み：{{count}} 件",
+          "legacy": "未確認の参照：{{count}}",
           "addLabel": "PR リンクを追加",
           "add": "PR を追加",
           "loading": "読み込み中…",
@@ -15145,6 +15146,7 @@
         "timeout": "タイムアウト（秒、任意）",
         "timeoutPlaceholder": "制限なし",
         "capabilities": {
+          "github_read": "GitHub の読み取り",
           "jira_read": "Jira を読み取る",
           "jira_comment": "Jira にコメントする",
           "sessions_dispatch": "セッションをディスパッチする",
@@ -15156,6 +15158,7 @@
         "capabilitiesSearch": "機能を検索",
         "capabilitiesEmpty": "一致する機能がありません",
         "capabilityDescs": {
+          "github_read": "PR、CI、レビューと観測した変更を読み取ります。タスクには関連付けません",
           "jira_read": "Jira 課題の照会・読み取り（キー指定 / JQL 検索）",
           "jira_comment": "Jira 課題へのコメント追加",
           "sessions_dispatch": "{{appName}} セッションの作成・再開とメッセージ送信",

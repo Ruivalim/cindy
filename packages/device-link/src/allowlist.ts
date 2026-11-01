@@ -324,6 +324,7 @@ const CORE_INVOKE_CHANNELS: readonly string[] = [
   'git-context:pr-refs:list',
   'git-context:pr-refs:manage',
   'git-context:pr-status',
+  'git-context:github-read',
   // —— 通用远程资源面——
   // 固定的 manifest / list / get / invoke 入口。业务模块只在被控端 provider
   // registry 注册资源与动作，后续新增模块或动作不再扩张 device-link channel 表。

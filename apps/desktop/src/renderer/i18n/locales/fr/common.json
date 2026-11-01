@@ -14882,6 +14882,7 @@
           "hint": "Jusqu’à 3 dans l’en-tête ; les PR épinglées apparaissent en premier",
           "empty": "Collez un lien de PR GitHub pour l’ajouter",
           "removed": "Supprimées : {{count}}",
+          "legacy": "Références non confirmées : {{count}}",
           "addLabel": "Ajouter un lien de PR",
           "add": "Ajouter une PR",
           "loading": "Chargement…",
@@ -15388,6 +15389,7 @@
         "timeout": "Délai d'expiration (secondes, facultatif)",
         "timeoutPlaceholder": "Aucun délai",
         "capabilities": {
+          "github_read": "Lire GitHub",
           "jira_read": "Lire Jira",
           "jira_comment": "Commenter dans Jira",
           "sessions_dispatch": "Répartir des sessions",
@@ -15399,6 +15401,7 @@
         "capabilitiesSearch": "Rechercher des capacités",
         "capabilitiesEmpty": "Aucune capacité correspondante",
         "capabilityDescs": {
+          "github_read": "Lire les PR, la CI, les revues et les changements observés sans associer de tâche",
           "jira_read": "Lire les issues Jira (obtention par clé / recherche JQL)",
           "jira_comment": "Ajouter des commentaires aux issues Jira",
           "sessions_dispatch": "Créer ou réveiller des sessions {{appName}} et leur transmettre des messages",

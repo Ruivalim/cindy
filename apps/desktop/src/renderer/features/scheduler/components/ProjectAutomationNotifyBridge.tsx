@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { toast } from '@/lib/toast';
+import { isSecondaryWindow } from '@/lib/secondaryWindow';
+import { isSidebarWindow } from '@/lib/sidebarWindow';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog-provider';
 
 export function ProjectAutomationNotifyBridge() {
@@ -9,22 +11,29 @@ export function ProjectAutomationNotifyBridge() {
   const { confirm } = useConfirmDialog();
 
   useEffect(() => {
+    if (isSecondaryWindow() || isSidebarWindow()) return;
     let active = true;
-    const shown = new Set<string>();
-    const toastIds = new Set<string>();
+    const pendingImports = new Map<string, ProjectAutomationImport>();
+    let toastId: string | undefined;
+    let reviewing = false;
     const controller = new AbortController();
     const offerImport = (pending: ProjectAutomationImport) => {
+      pendingImports.set(pending.workingDir, pending);
+      showNext();
+    };
+    const showNext = () => {
       if (!active) return;
-      const key = `${pending.workingDir}\n${pending.configHash}`;
-      if (shown.has(key)) return;
-      shown.add(key);
-      let reviewing = false;
-      const toastId = toast.info(t('scheduler.projectAutomation.import.found', { projectName: lastPathSegment(pending.workingDir) }), {
+      if (toastId || reviewing) return;
+      const pending = pendingImports.values().next().value;
+      if (!pending) return;
+      let opened = false;
+      toastId = toast.info(t('scheduler.projectAutomation.import.found', { projectName: lastPathSegment(pending.workingDir) }), {
         duration: 0,
         action: {
           label: t('scheduler.projectAutomation.import.review'),
           onClick: () => {
-            if (!active || reviewing) return;
+            if (!active || reviewing || opened) return;
+            opened = true;
             reviewing = true;
             void (async () => {
               try {
@@ -49,20 +58,30 @@ export function ProjectAutomationNotifyBridge() {
                   workingDir: pending.workingDir, approvedHash: pending.configHash,
                 });
                 if (result.pendingImport) offerImport(result.pendingImport);
+                else if (pendingImports.get(pending.workingDir)?.configHash === pending.configHash) {
+                  pendingImports.delete(pending.workingDir);
+                }
               } catch (error) {
                 if (active) toast.error(error instanceof Error ? error.message : String(error));
               } finally {
-                shown.delete(key);
+                // Keep cancelled/failed imports available, rotating them behind
+                // other projects so one deferred project cannot block the rest.
+                const remaining = pendingImports.get(pending.workingDir);
+                if (remaining) {
+                  pendingImports.delete(pending.workingDir);
+                  pendingImports.set(pending.workingDir, remaining);
+                }
+                reviewing = false;
+                showNext();
               }
             })();
           },
         },
         onClose: () => {
-          toastIds.delete(toastId);
-          if (!reviewing) shown.delete(key);
+          toastId = undefined;
+          showNext();
         },
       });
-      toastIds.add(toastId);
     };
     const unsubscribe = window.electronAPI.maker.projectAutomation.onEvent((event: ProjectAutomationEvent) => {
       if (event.type === 'import-required') {
@@ -95,7 +114,7 @@ export function ProjectAutomationNotifyBridge() {
       active = false;
       controller.abort();
       unsubscribe();
-      toastIds.forEach((id) => toast.dismiss(id));
+      if (toastId) toast.dismiss(toastId);
     };
   }, [confirm, t]);
 

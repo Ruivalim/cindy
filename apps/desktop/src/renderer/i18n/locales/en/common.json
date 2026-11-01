@@ -8287,7 +8287,8 @@
       "dialog": {
         "createTitle": "Add MCP server",
         "editTitle": "Edit MCP server",
-        "desc": "Remote http / sse MCP only. New sessions can call it after saving; in-flight sessions are unaffected."
+        "desc": "Remote http / sse MCP only. New sessions can call it after saving; in-flight sessions are unaffected.",
+        "teammateDesc": "Remote http / sse MCP only. After saving, your teammate adds it to their tools and can use it from the next message in this chat, with no new session needed."
       },
       "fields": {
         "name": "Display name",

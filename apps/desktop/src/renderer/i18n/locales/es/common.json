@@ -8354,7 +8354,8 @@
       "dialog": {
         "createTitle": "Agregar servidor MCP",
         "editTitle": "Editar servidor MCP",
-        "desc": "Solo MCP remoto http / sse. Las nuevas sesiones podrán usarlo después de guardar; las sesiones en curso no se verán afectadas."
+        "desc": "Solo MCP remoto http / sse. Las nuevas sesiones podrán usarlo después de guardar; las sesiones en curso no se verán afectadas.",
+        "teammateDesc": "Solo MCP remoto http / sse. Después de guardar, tu compañero lo añade a sus herramientas y puede usarlo desde el siguiente mensaje de esta conversación, sin necesidad de una nueva sesión."
       },
       "fields": {
         "name": "Nombre para mostrar",

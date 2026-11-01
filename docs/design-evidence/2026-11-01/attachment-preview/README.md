@@ -148,3 +148,13 @@ Run 41323484318 / job 124898531519 的 Mobile unit 5 例失败来自两个文件
 验证：3 个直接相关测试文件共 35 例通过（总运行 1.48 秒，测试执行 0.969 秒）；Mobile typecheck、test-hygiene、design-inventory、diff 检查通过。没有跑无关全量。原群聊阅读器测试只补公共 TextInput 的原生替身导出，继续执行真实生产阅读器及查找跳转、截断、完整原文复制等原断言，未新增用例。测试价值：排版守卫保护 mobile-design-guide §3 的公共排版和 AppText 契约；此前唯一覆盖缺口为把新生成 vendor 引擎字符串误判为 RN 样式。最小失败输入为上述生成文件的 JS 字符串及真实阅读器的 RN 值导入；沿用原静态扫描文件，不新加 guard/豁免业务组件。该文件测试执行 0.806 秒，群聊阅读器文件 0.120 秒。
 
 本工作树 Metro `8081` 的归属与 native fingerprint 核对通过（global / mock）。iOS 浅色与 Android 深色实际打开 10,001 行 large.json，看到截断提示、规范代码字号；查找 9999 后跳至第 10,000 行，公共输入组件能输入并正确统计 1/1，关闭返回原任务。iOS 是 C595F130-633C-482D-B08B-D03D195367EF；Android 是插件设备 2CFB5602-E3B5-4C07-A0BF-22C4CF344843 / 精确 AVD 核验后的 emulator-5554。截图：[iOS](ci-typography-ios-search.jpg)、[Android](ci-typography-android-search.jpg)。这只是本轮改动验收，不替代原文明确的完整来源、Windows、平板等补充缺口。仅用原合成 mock，未创建真实任务或伙伴。两端 App、模拟器和本任务 Metro 正常退出，保留数据。
+
+## 主干冲突处理（2026-11-02，继 10fc0b06）
+
+同步 upstream/main `19dad9c22542eb36b10ca31d14b61ad934068502`。唯一冲突文件为 `docs/design-rules/design-inventory.md`，位置在 GENERATED 机器统计区；主干与附件预览分支分别新增可达组件及排版事实，不能任选一侧的旧统计。
+
+用正式 `pnpm design:inventory` 在合并后的源码树重建，`check:design-inventory` 通过（59 个 surface），连续第二次生成字节不变。逐字比对非 GENERATED 内容，确认与两个 parent 都一致，没有丢失人工维护的设计决策。语言文件非重叠条目自动合并，不手工覆盖；本轮没有手工改变任何业务源码、产品取舍、读取来源或权限。
+
+本轮只处理生成台账及保留主干更新；代码冲突为零，不重启 App/模拟器。原运行证据与补充验收缺口继续保留。上轮颜色扫描超时的独立 issue #8369 仍未解除，不因解决合并冲突宣称 CI 已通过。
+
+合并树定向验证：`node --test scripts/__tests__/design-inventory.test.mjs` 52 例通过（85.44 秒，保留全文件原有 fixture 与真实路由校验）；`check:i18n` 的 12 种语言 14,766 个 key 结构一致；Desktop 与 Mobile 类型检查均通过；两次正式生成一致、无冲突标记、diff 检查通过。没有新增/改写测试，没有扩大为整仓全量。

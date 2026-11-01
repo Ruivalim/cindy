@@ -8287,7 +8287,8 @@
       "dialog": {
         "createTitle": "MCP-Server hinzufügen",
         "editTitle": "MCP-Server bearbeiten",
-        "desc": "Nur Remote-MCP über http / sse. Neue Sitzungen können ihn nach dem Speichern aufrufen; laufende Sitzungen bleiben unverändert."
+        "desc": "Nur Remote-MCP über http / sse. Neue Sitzungen können ihn nach dem Speichern aufrufen; laufende Sitzungen bleiben unverändert.",
+        "teammateDesc": "Nur Remote-MCP über http / sse. Nach dem Speichern fügt dein Teammitglied ihn seinen Werkzeugen hinzu und kann ihn ab der nächsten Nachricht in diesem Chat nutzen; eine neue Sitzung ist nicht nötig."
       },
       "fields": {
         "name": "Anzeigename",

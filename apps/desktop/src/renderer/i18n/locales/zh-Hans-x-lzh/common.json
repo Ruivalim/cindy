@@ -8244,7 +8244,8 @@
       "dialog": {
         "createTitle": "增 MCP 服务器",
         "editTitle": "修 MCP 服务器",
-        "desc": "仅支持远程 http / sse 型 MCP。存后新开或重启之 Agent 差事即可调用，方行之 Agent 差事不受影响。"
+        "desc": "仅支持远程 http / sse 型 MCP。存后新开或重启之 Agent 差事即可调用，方行之 Agent 差事不受影响。",
+        "teammateDesc": "仅支持远程 http / sse 型 MCP。存后同僚自纳为己用，于此言谈下一则讯息起即可用之，毋须新开差事。"
       },
       "fields": {
         "name": "显名",
